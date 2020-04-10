@@ -1,0 +1,143 @@
+---
+title: "R Notebook"
+output: html_notebook
+author: ruonanjia
+---
+
+load library
+```{r}
+library(ggplot2)
+library(zipcode) # install only available through archive
+library(maps)
+```
+
+read data
+```{r}
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19")
+# data downloaded from qualtrics, with numeric code 
+data.raw = read.csv("MDM_R&A_Task_withGraphics_COVID-19_April+9,+2020_19.15.csv")
+# read trial parameters of the DM task
+trial.param <- read.csv("trialsinfo_COVID_19.csv", header = TRUE, )
+View(data.raw)
+View(trial.param)
+```
+
+Extract batch data
+```{r}
+
+colnames(data.raw)
+
+# get rid of excessive header
+header <- data.raw[1:2, ]
+data.raw <- data.raw[-c(1,2),]
+# get rid of preview and incomplete data
+data.raw <- data.raw[!data.raw$DistributionChannel == "preview",]
+data.raw <- data.raw[data.raw$Finished == 1, ]
+data.raw <- data.raw[!is.na(as.numeric(as.character(data.raw$mTurkCode))), ]
+
+# dates for each batch
+launch <- data.frame(start=as.Date(c("2020-03-29", "2020-04-06")), 
+                     end=as.Date(c("2020-03-31", "2020-04-07")))
+
+# get rid of lab testing data (by comparing survey startdate)
+data.raw <- data.raw[!as.Date(as.character(data.raw$StartDate)) < launch$start[1],] 
+data.raw <- data.raw[!(as.Date(as.character(data.raw$StartDate)) > launch$end[1] & as.Date(as.character(data.raw$StartDate)) < launch$start[2]), ]
+
+
+nrow(data.raw) # should be 60
+```
+
+attention check questions, count wrong answers
+```{r}
+# colnames(data.raw)
+ac.id <- c("Q377", "Q1194", "AC5", "Q1077", "Q994", "Q1017", "AC9", "AC10", "Q1899", "AC4", "AC7", "AC8")
+
+col.no <- c(20,24,42,55,80,84,102,114,150,165,212,266,350)
+colnames(data.raw)[col.no]
+att.check <- data.raw[, col.no]
+
+correct <- c(2,2,5,5,3,3,2,1,10,7,1,3)
+for (i in 1:nrow(att.check)) {
+  att.check$wrong[i] = 0 # count how many wrong answers
+  for (j in 1:12) {
+    if (att.check[i, j] != correct[j]) {
+      att.check$wrong[i] <- att.check$wrong[i]+1
+    }
+  }
+}
+
+# check the column att.check$wrong, indicating the number of wrong answers
+View(att.check)
+
+```
+
+task data
+```{r}
+colnames(data.raw)
+# choice, rating, and ambiguity estimation
+data.task <- data.raw[,c(29:41,43:54,56:79,89:101,103:113,115:139,140:149,151:154,350)]
+View(data.task)
+colnames(data.task)
+# change column names for ambiguity estimation
+colnames(data.task)[109:112] <- c("a24.e", "a50.e", "a74.e", "a100.e")
+colnames(data.task)
+
+```
+
+choice data
+```{r}
+# extrach choice data and attache trial parameters
+# concatenate all subjects
+data.choice <- 
+```
+
+demographic block
+```{r}
+data.demo <- data.raw[,c(155:164,166:171, 350)]
+View(data.demo)
+colnames(data.demo)
+
+data.demo$Q937 <- as.numeric(as.character(data.demo$Q937)) + 17 # correct coding
+
+# age
+ggplot(data.demo, aes(x=Q937)) +
+  geom_histogram(position = "identity", bins = 20) +
+  labs(x = "Age")
+
+# geo
+data.demo$Q959 <- as.numeric(as.character(data.demo$Q959))
+data(zipcode)
+data.demo$zipcode<- clean.zipcodes(data.demo$Q959)
+
+#size by zip
+data.zipcode<-aggregate(data.frame(count=data.demo$mTurkCode),list(zip=data.demo$zipcode),length)
+geo<- merge(data.zipcode, zipcode, by='zip')
+
+us<-map_data('state')
+
+ggplot(geo,aes(longitude,latitude)) +
+  geom_polygon(data=us,aes(x=long,y=lat,group=group),color='gray',fill=NA,alpha=.35) +
+  geom_point(aes(color = count),size=1,alpha=1) + 
+  # scale_colour_gradient(high="dark blue", low="light blue") +
+  theme_classic()+
+  xlim(-125,-65)+ylim(20,50)
+```
+
+ambiguity block
+```{r}
+colnames(data.raw)
+```
+
+risk exposure block
+```{r}
+
+```
+
+action block
+```{r}
+
+```
+
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
