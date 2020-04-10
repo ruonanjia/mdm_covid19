@@ -119,8 +119,10 @@ ggplot(geo,aes(longitude,latitude)) +
   geom_polygon(data=us,aes(x=long,y=lat,group=group),color='gray',fill=NA,alpha=.35) +
   geom_point(aes(color = count),size=1,alpha=1) + 
   # scale_colour_gradient(high="dark blue", low="light blue") +
+  scale_color_continuous(breaks = c(1,2), labels = c(1,2)) +
   theme_classic()+
   xlim(-125,-65)+ylim(20,50)
+
 ```
 
 ambiguity block
