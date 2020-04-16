@@ -25,6 +25,9 @@ View(trial.param)
 
 Extract batch data
 ```{r}
+# dates for each batch
+launch <- data.frame(start=as.Date(c("2020-03-29", "2020-04-06", "2020-04-13")), 
+                     end=as.Date(c("2020-03-31", "2020-04-07", "2020-04-14")))
 
 # colnames(data.raw)
 
@@ -36,10 +39,6 @@ View(header)
 data.raw <- data.raw[!data.raw$DistributionChannel == "preview",]
 data.raw <- data.raw[data.raw$Finished == 1, ]
 data.raw <- data.raw[!is.na(as.numeric(as.character(data.raw$mTurkCode))), ]
-
-# dates for each batch
-launch <- data.frame(start=as.Date(c("2020-03-29", "2020-04-06", "2020-04-13")), 
-                     end=as.Date(c("2020-03-31", "2020-04-07", "2020-04-14")))
 
 # get rid of lab testing data (by comparing survey startdate)
 data.raw <- data.raw[!as.Date(as.character(data.raw$StartDate)) < launch$start[1],] 
@@ -155,7 +154,10 @@ colnames(data.raw)
 
 risk exposure block
 ```{r}
-
+data.raw$Q1027
+# those who themselves were infected with COVID-19
+data.raw$mTurkCode[data.raw$Q1027 == 1]
+# 2-immediate family, 3 - extended family, 9 - no
 ```
 
 action block
