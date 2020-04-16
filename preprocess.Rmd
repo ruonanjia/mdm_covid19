@@ -15,7 +15,8 @@ read data
 ```{r}
 setwd("E:/Ruonan/Projects in the lab/mdm_covid19")
 # data downloaded from qualtrics, with numeric code 
-data.raw = read.csv("MDM_R&A_Task_withGraphics_COVID-19_April+9,+2020_19.15.csv")
+# data.raw = read.csv("MDM_R&A_Task_withGraphics_COVID-19_April+9,+2020_19.15.csv")
+data.raw = read.csv("MDM_R&A_Task_withGraphics_COVID-19_April+15,+2020_23.00.csv")
 # read trial parameters of the DM task
 trial.param <- read.csv("trialsinfo_COVID_19.csv", header = TRUE, )
 View(data.raw)
@@ -25,36 +26,40 @@ View(trial.param)
 Extract batch data
 ```{r}
 
-colnames(data.raw)
+# colnames(data.raw)
 
 # get rid of excessive header
 header <- data.raw[1:2, ]
 data.raw <- data.raw[-c(1,2),]
+View(header)
 # get rid of preview and incomplete data
 data.raw <- data.raw[!data.raw$DistributionChannel == "preview",]
 data.raw <- data.raw[data.raw$Finished == 1, ]
 data.raw <- data.raw[!is.na(as.numeric(as.character(data.raw$mTurkCode))), ]
 
 # dates for each batch
-launch <- data.frame(start=as.Date(c("2020-03-29", "2020-04-06")), 
-                     end=as.Date(c("2020-03-31", "2020-04-07")))
+launch <- data.frame(start=as.Date(c("2020-03-29", "2020-04-06", "2020-04-13")), 
+                     end=as.Date(c("2020-03-31", "2020-04-07", "2020-04-14")))
 
 # get rid of lab testing data (by comparing survey startdate)
 data.raw <- data.raw[!as.Date(as.character(data.raw$StartDate)) < launch$start[1],] 
 data.raw <- data.raw[!(as.Date(as.character(data.raw$StartDate)) > launch$end[1] & as.Date(as.character(data.raw$StartDate)) < launch$start[2]), ]
 
 
-nrow(data.raw) # should be 60
+nrow(data.raw) # should be 110
 ```
 
 attention check questions, count wrong answers
 ```{r}
+# extract new batch to pay
+data.batch <- data.raw[as.Date(as.character(data.raw$StartDate)) >= launch$start[3] & as.Date(as.character(data.raw$StartDate)) <= launch$end[3], ]
+
 # colnames(data.raw)
 ac.id <- c("Q377", "Q1194", "AC5", "Q1077", "Q994", "Q1017", "AC9", "AC10", "Q1899", "AC4", "AC7", "AC8")
 
 col.no <- c(20,24,42,55,80,84,102,114,150,165,212,266,350)
-colnames(data.raw)[col.no]
-att.check <- data.raw[, col.no]
+colnames(data.batch)[col.no]
+att.check <- data.batch[, col.no]
 
 correct <- c(2,2,5,5,3,3,2,1,10,7,1,3)
 for (i in 1:nrow(att.check)) {
@@ -68,8 +73,20 @@ for (i in 1:nrow(att.check)) {
 
 # check the column att.check$wrong, indicating the number of wrong answers
 View(att.check)
-
+# those with more than half ATT check Questions wrong
+as.character(att.check$mTurkCode[att.check$wrong > 6])
 ```
+
+MTurkers who answered additional Qs
+```{r}
+colnames(data.batch)
+
+header$Q1089.1
+# 5 - answered additional Qs
+bonus.code <- as.numeric(as.character(data.batch$mTurkCode[data.batch$Q1089.1 == 5]))
+bonus.code
+```
+
 
 task data
 ```{r}
@@ -117,11 +134,17 @@ us<-map_data('state')
 
 ggplot(geo,aes(longitude,latitude)) +
   geom_polygon(data=us,aes(x=long,y=lat,group=group),color='gray',fill=NA,alpha=.35) +
-  geom_point(aes(color = count),size=1,alpha=1) + 
+  geom_point(aes(color = count),size=1.5,alpha=0.5) + 
   # scale_colour_gradient(high="dark blue", low="light blue") +
   scale_color_continuous(breaks = c(1,2), labels = c(1,2)) +
-  theme_classic()+
+  theme(panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.background = element_blank()) +
   xlim(-125,-65)+ylim(20,50)
+  
 
 ```
 
