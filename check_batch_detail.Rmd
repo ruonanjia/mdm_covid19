@@ -1,0 +1,65 @@
+---
+title: "R Notebook"
+output: html_notebook
+authro: ruonanjia
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+plot(cars)
+```
+
+
+```{r}
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_detail")
+# batch1 <- read.csv("Batch_3973824_batch_results.csv")
+# batch2 <- read.csv("Batch_3983151_batch_results.csv")
+# batch3 <- read.csv("Batch_3991931_batch_results.csv")
+# batch4 <- read.csv("Batch_3999031_batch_results.csv")
+# batch5 <- read.csv("Batch_4003124_batch_results.csv")
+# batch6 <- read.csv("Batch_4006085_batch_results.csv")
+
+batch7 <- read.csv("Batch_4012287_batch_results.csv")
+
+```
+
+```{r}
+colnames(batch7)
+batch7$Answer.surveycode
+
+is.element(batch7$Answer.surveycode, data.batch$mTurkCode)
+
+batch7$Answer.surveycode[2]
+```
+
+
+```{r}
+colnames(batch2)
+nrow(batch6)
+
+# combine data
+batch <- rbind(batch1, batch2,batch3,batch4,batch5,batch6)
+nrow(batch)
+View(batch)
+```
+
+# check duplication of worker ID
+```{r}
+colnames(batch)
+batch$WorkerId
+
+id.duplicate <- batch$WorkerId[duplicated(batch$WorkerId)]
+length(id.duplicate)
+time.duplicate <- data.frame(batch$AcceptTime[is.element(batch$WorkerId, id.duplicate)], batch$WorkerId[is.element(batch$WorkerId, id.duplicate)])
+View(time.duplicate)
+```
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
