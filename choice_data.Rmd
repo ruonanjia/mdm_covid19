@@ -1,0 +1,280 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+load library
+```{r}
+library(ggplot2)
+library(ggpubr)
+```
+
+
+functions
+```{r}
+data_summary <- function(data, varname, groupnames){
+  # Function to calculate the mean and the standard error
+  # for each group
+  #+++++++++++++++++++++++++
+  # data : a data frame
+  # varname : the name of a column containing the variable
+  #to be summariezed
+  # groupnames : vector of column names to be used as
+  # grouping variables
+  
+  require(plyr)
+  summary_func <- function(x, col){
+    c(mean = mean(x[[col]], na.rm=TRUE),
+      sd = sd(x[[col]], na.rm=TRUE)/sqrt(length(x[[col]])))
+  }
+  data_sum<-ddply(data, groupnames, .fun=summary_func,
+                  varname)
+  data_sum <- rename(data_sum, c("mean" = varname))
+  return(data_sum)
+}
+
+
+data_meanstd <- function(x) {
+  # Function to produce summary statistics (mean and +/- sd)
+  m <- mean(x)
+  ymin <- m-sd(x)
+  ymax <- m+sd(x)
+  return(c(y=m,ymin=ymin,ymax=ymax))
+}
+
+data_meanse <- function(x) {
+  # Function to produce summary statistics (mean and +/- sd)
+  m <- mean(x)
+  ymin <- m-sd(x)/sqrt(length(x))
+  ymax <- m+sd(x)/sqrt(length(x))
+  return(c(y=m,ymin=ymin,ymax=ymax))
+}
+
+```
+
+```{r}
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
+load("data_all_444sub.Rda")
+load("data_all_444sub_header.Rda")
+
+```
+
+
+task data
+```{r}
+colnames(data.all)
+# choice, rating, and ambiguity estimation
+data.task <- data.all[,c(29:41,43:54,56:79,89:101,103:113,115:139,140:149,151:154,350)]
+# View(data.task)
+# colnames(data.task)
+# change column names for ambiguity estimation
+colnames(data.task)[109:112] <- c("a24.e", "a50.e", "a74.e", "a100.e")
+colnames(data.task)
+
+```
+
+extract choice data
+```{r}
+# extract choice data and attache trial parameters
+# concatenate all subjects
+
+# colnames(trial.param)
+# colnames(data.task)
+
+for (i in 1:nrow(data.task)) {
+  # single subject choice
+  sub.choice <- trial.param
+  choice <- data.task[i, 1:98]
+  id <- data.task$mTurkCode[i] # MTurk code
+  sub.choice$id <- id
+  sub.choice$choice <- as.numeric(t(choice)) # transpose
+  
+  # concatenate
+  if (i == 1) {
+    data.choice <- sub.choice
+  } else {
+    data.choice <- rbind(data.choice, sub.choice)
+  }
+}
+
+# View(data.choice)
+
+# typeof(data.choice$val)
+
+data.choice.mon <- data.choice[data.choice$is_med == 0, ]
+data.choice.med <- data.choice[data.choice$is_med == 1, ]
+
+
+data.choice.mon$val <- as.numeric(as.character(data.choice.mon$val))
+data.choice.mon$prob <- as.factor(data.choice.mon$prob)
+data.choice.mon$ambig <- as.factor(data.choice.mon$ambig)
+
+data.choice.med$val <- as.factor(data.choice.med$val)
+data.choice.med$prob <- as.factor(data.choice.med$prob)
+data.choice.med$ambig <- as.factor(data.choice.med$ambig)
+```
+
+Plot average choice probability by uncertainty level
+```{r}
+# # monetary
+# ggplot(data.choice.mon[data.choice.mon$id == id & data.choice.mon$ambig == 0, ], aes(x = val, y = choice, color = prob, fill = prob)) + 
+#   geom_point(stat = "identity", size = 2, alpha = 0.6) +
+#   geom_line()
+# 
+# ggplot(data.choice.mon[data.choice.mon$id == id & data.choice.mon$ambig != 0, ], aes(x = val, y = choice, color = ambig, fill = ambig)) + 
+#   geom_point(stat = "identity", size = 2, alpha = 0.6) +
+#   geom_line()
+# 
+# # medical
+# ggplot(data.choice.med[data.choice.med$id == id & data.choice.med$ambig == 0, ], aes(x = val, y = choice, color = prob, fill = prob)) + 
+#   geom_point(stat = "identity", size = 2, alpha = 0.6) +
+#   scale_x_discrete(limits = c("Slight", "Moderate", "Major", "Recovery")) +
+#   geom_line()
+
+# typeof(data.choice.med$prob)
+
+# monetary risky
+data_plot <- data_summary(data.choice.mon[data.choice.mon$ambig == 0,], varname = "choice", groupnames = "prob")
+
+ggplot(data_plot, aes(x=prob, y=choice)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
+  ggtitle("Monetary Risky")
+
+# monetary ambiguous
+data_plot <- data_summary(data.choice.mon[data.choice.mon$ambig != 0,], varname = "choice", groupnames = "ambig")
+
+ggplot(data_plot, aes(x=ambig, y=choice)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
+  ggtitle("Monetary Ambiguous")
+
+# medical risky
+data_plot <- data_summary(data.choice.med[data.choice.med$ambig == 0,], varname = "choice", groupnames = "prob")
+
+ggplot(data_plot, aes(x=prob, y=choice)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
+  ggtitle("Medical Risky")
+
+# medical ambiguous
+data_plot <- data_summary(data.choice.med[data.choice.med$ambig != 0,], varname = "choice", groupnames = "ambig")
+
+ggplot(data_plot, aes(x=ambig, y=choice)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
+  ggtitle("Medical Ambiguous")
+
+
+```
+
+plot average choice probability by value
+```{r}
+# monetary risky
+data_plot <- data_summary(data.choice.mon[data.choice.mon$ambig == 0,], varname = "choice", groupnames = "val")
+
+ggplot(data_plot, aes(x=val, y=choice)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
+  scale_x_discrete(limits = c(5,8,12,25)) +
+  ggtitle("Monetary Risky")
+
+# monetary ambiguous
+data_plot <- data_summary(data.choice.mon[data.choice.mon$ambig != 0,], varname = "choice", groupnames = "val")
+
+ggplot(data_plot, aes(x=val, y=choice)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
+  scale_x_discrete(limits = c(5,8,12,25)) +
+  ggtitle("Monetary Risky")
+
+# medical risky
+data_plot <- data_summary(data.choice.med[data.choice.med$ambig == 0,], varname = "choice", groupnames = "val")
+
+ggplot(data_plot, aes(x=val, y=choice)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
+  scale_x_discrete(limits = c("Slight", "Moderate", "Major", "Recovery")) +
+  ggtitle("Medical Risky")
+
+# medical ambiguous
+data_plot <- data_summary(data.choice.med[data.choice.med$ambig != 0,], varname = "choice", groupnames = "val")
+
+ggplot(data_plot, aes(x=val, y=choice)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
+  scale_x_discrete(limits = c("Slight", "Moderate", "Major", "Recovery")) +
+  ggtitle("Medical Ambiguous")
+```
+
+individual subject choice data
+```{r}
+id_idx = 1
+ids <- data.task$mTurkCode
+
+for (id in ids) {
+  
+  # single subject data
+  sub.mon <- data.choice.mon[data.choice.mon$id == id,]
+  sub.med <- data.choice.med[data.choice.med$id == id,]
+  sub.mon$val <- as.factor(sub.mon$val)
+  
+  # monetary risky
+  data_plot <- data_summary(sub.mon[sub.mon$ambig == 0,], varname = "choice", groupnames = c("val", "prob"))
+  
+  p1 <- ggplot(data_plot, aes(x=val, y=prob, fill=choice)) + 
+    geom_tile(color = "white")+
+    scale_x_discrete(breaks = c(5,8,12,25)) +
+    scale_fill_gradient(limits = c(0,1)) +
+    theme(panel.grid = element_blank(),
+          panel.background = element_blank()) +
+    ggtitle(paste("Monetary Risky, Sub", as.character(id))) +
+    xlab("Value ($)") + ylab("Risk Level")
+  
+  # monetary ambiguous
+  data_plot <- data_summary(sub.mon[sub.mon$ambig != 0,], varname = "choice", groupnames = c("val", "ambig"))
+  
+  p2 <- ggplot(data_plot, aes(x=val, y=ambig, fill=choice)) + 
+    geom_tile(color = "white")+
+    scale_x_discrete(breaks = c(5,8,12,25)) +
+    scale_fill_gradient(limits = c(0,1)) +
+    theme(panel.grid = element_blank(),
+          panel.background = element_blank()) +
+    ggtitle("Monetary Ambiguous") +
+    xlab("Value ($)") + ylab("Ambiguity Level")
+  
+  # medical risky
+  data_plot <- data_summary(sub.med[sub.med$ambig == 0,], varname = "choice", groupnames = c("val", "prob"))
+  
+  p3 <- ggplot(data_plot, aes(x=val, y=prob, fill=choice)) + 
+    geom_tile(color = "white")+
+    scale_x_discrete(limits = c("Slight", "Moderate", "Major", "Recovery")) +
+    scale_fill_gradient(limits = c(0,1)) +
+    theme(panel.grid = element_blank(),
+          panel.background = element_blank()) +
+    ggtitle("Medical Risky") +
+    xlab("Outcome") + ylab("Risk Level")
+  
+  # medical ambiguous
+  data_plot <- data_summary(sub.med[sub.med$ambig != 0,], varname = "choice", groupnames = c("val", "ambig"))
+  
+  p4 <- ggplot(data_plot, aes(x=val, y=ambig, fill=choice)) + 
+    geom_tile(color = "white")+
+    scale_x_discrete(limits = c("Slight", "Moderate", "Major", "Recovery")) +
+    scale_fill_gradient(limits = c(0,1)) +
+    theme(panel.grid = element_blank(),
+          panel.background = element_blank()) +
+    ggtitle("Medical Ambiguous") +
+    xlab("Outcome") + ylab("Ambiguity Level")
+  
+  figure <- ggarrange(p1,p2,p3,p4,
+                      ncol = 2, nrow = 2) + border(size = 2)
+
+  print(figure)
+  
+  annotate_figure(figure,
+                  top = text_grob(paste("MTurkCode", as.character(id)))
+                  )
+  
+
+}
+```

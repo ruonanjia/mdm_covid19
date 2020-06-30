@@ -1,0 +1,86 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+load library
+```{r}
+library(ggplot2)
+library(zipcode) # install only available through archive
+library(maps)
+library(ggpubr)
+```
+
+load data
+```{r}
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
+load("data_all_444sub.Rda")
+load("data_all_444sub_header.Rda")
+
+```
+
+```{r}
+colnames(data.all)[c(155:164,166:171, 353)]
+t(header[1, c(155:164,166:171, 353)])
+```
+
+
+demographic block
+```{r}
+data.demo <- data.all[,c(155:164,166:171, 353)]
+View(data.demo)
+colnames(data.demo)
+
+data.demo$Q937 <- as.numeric(as.character(data.demo$Q937)) + 17 # correct coding
+
+# age
+ggplot(data.demo, aes(x=Q937)) +
+  geom_histogram(position = "identity", bins = 20) +
+  labs(x = "Age")
+
+# geo
+data.demo$Q959 <- as.numeric(as.character(data.demo$Q959))
+data(zipcode)
+data.demo$zipcode<- clean.zipcodes(data.demo$Q959)
+
+#size by zip
+data.zipcode<-aggregate(data.frame(count=data.demo$mTurkCode),list(zip=data.demo$zipcode),length)
+geo<- merge(data.zipcode, zipcode, by='zip')
+
+us<-map_data('state')
+
+ggplot(geo,aes(longitude,latitude)) +
+  geom_polygon(data=us,aes(x=long,y=lat,group=group),color='gray',fill=NA,alpha=.35) +
+  geom_point(aes(color = count),size=0.8,alpha=0.4) + 
+  # scale_colour_gradient(high="dark blue", low="light blue") +
+  # scale_color_continuous(breaks = c(1,2), labels = c(1,2)) +
+  theme(panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.background = element_blank()) +
+  xlim(-125,-65)+ylim(20,50)
+  
+
+```
+
+ambiguity block
+```{r}
+colnames(data.all)
+```
+
+risk exposure block
+```{r}
+data.raw$Q1027
+# those who themselves were infected with COVID-19
+data.raw$mTurkCode[data.raw$Q1027 == 1]
+# 2-immediate family, 3 - extended family, 9 - no
+```
+
+action block
+```{r}
+
+```
+
+
