@@ -4,55 +4,8 @@ output: html_notebook
 author: ruonanjia
 ---
 
-load library
-```{r}
-library(ggplot2)
-library(zipcode) # install only available through archive
-library(maps)
-library(ggpubr)
-```
-
-functions
-```{r}
-data_summary <- function(data, varname, groupnames){
-  # Function to calculate the mean and the standard error
-  # for each group
-  #+++++++++++++++++++++++++
-  # data : a data frame
-  # varname : the name of a column containing the variable
-  #to be summariezed
-  # groupnames : vector of column names to be used as
-  # grouping variables
-  
-  require(plyr)
-  summary_func <- function(x, col){
-    c(mean = mean(x[[col]], na.rm=TRUE),
-      sd = sd(x[[col]], na.rm=TRUE)/sqrt(length(x[[col]])))
-  }
-  data_sum<-ddply(data, groupnames, .fun=summary_func,
-                  varname)
-  data_sum <- rename(data_sum, c("mean" = varname))
-  return(data_sum)
-}
 
 
-data_meanstd <- function(x) {
-  # Function to produce summary statistics (mean and +/- sd)
-  m <- mean(x)
-  ymin <- m-sd(x)
-  ymax <- m+sd(x)
-  return(c(y=m,ymin=ymin,ymax=ymax))
-}
-
-data_meanse <- function(x) {
-  # Function to produce summary statistics (mean and +/- sd)
-  m <- mean(x)
-  ymin <- m-sd(x)/sqrt(length(x))
-  ymax <- m+sd(x)/sqrt(length(x))
-  return(c(y=m,ymin=ymin,ymax=ymax))
-}
-
-```
 
 read data
 ```{r}
@@ -65,8 +18,8 @@ setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
 # 110 subjects
 # data.raw = read.csv("MDM_R&A_Task_withGraphics_COVID-19_April+15,+2020_23.00.csv")
 
-# 23 older adults
-data.raw = read.csv("MDM_R&A_Task_withGraphics_COVID-19_Older_May+8,+2020_11.29.csv")
+# older adults
+data.raw = read.csv("MDM_R&A_Task_withGraphics_COVID-19_May+8,+2020_11.30.csv")
 
 # read trial parameters of the DM task
 trial.param <- read.csv("trialsinfo_COVID_19.csv", header = TRUE, )
@@ -74,27 +27,14 @@ trial.param <- read.csv("trialsinfo_COVID_19.csv", header = TRUE, )
 # View(trial.param)
 ```
 
-Load batch details
-```{r}
-setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
-# batch1 <- read.csv("Batch_3973824_batch_results.csv")
-# batch2 <- read.csv("Batch_3983151_batch_results.csv")
-# batch3 <- read.csv("Batch_3991931_batch_results.csv")
-# batch4 <- read.csv("Batch_3999031_batch_results.csv")
-# batch5 <- read.csv("Batch_4003124_batch_results.csv")
-# batch6 <- read.csv("Batch_4006085_batch_results.csv")
-
-batch <- read.csv("Batch_4023483_batch_results.csv")
-```
-
 Extract batch data
 ```{r}
 # dates for each batch
-launch <- data.frame(start=as.Date(c("2020-03-29", "2020-04-06", "2020-04-13", "2020-04-21", "2020-04-27")), 
-                     end=as.Date(c("2020-03-31", "2020-04-07", "2020-04-14", "2020-04-23", "2020-04-30")))
+launch <- data.frame(start=as.Date(c("2020-03-29", "2020-04-06", "2020-04-13", "2020-04-21", "2020-04-27", "2020-05-05")), 
+                     end=as.Date(c("2020-03-31", "2020-04-07", "2020-04-14", "2020-04-23", "2020-04-30", "2020-05-06")))
 
-launch_60 <- data.frame(start=as.Date(c("2020-04-17", "2020-04-22","2020-04-27", "2020-04-27")), 
-                     end=as.Date(c("2020-04-22", "2020-04-26", "2020-04-28", "2020-04-30")))
+launch_60 <- data.frame(start=as.Date(c("2020-04-17", "2020-04-22","2020-04-27", "2020-04-27", "2020-05-05")), 
+                     end=as.Date(c("2020-04-22", "2020-04-26", "2020-04-28", "2020-04-30", "2020-05-06")))
 
 # colnames(data.raw)
 
@@ -116,14 +56,16 @@ nrow(data.raw) # check numner of participants
 
 attention check questions, count wrong answers
 ```{r}
-# extract new batch to pay, younger
-data.batch <- data.raw[as.Date(as.character(data.raw$StartDate)) >= launch$start[5] & as.Date(as.character(data.raw$StartDate)) <= launch$end[5], ]
+# # extract new batch to pay, younger
+# data.batch <- data.raw[as.Date(as.character(data.raw$StartDate)) >= launch$start[5] & as.Date(as.character(data.raw$StartDate)) <= launch$end[5], ]
+# 
+# # older
+# data.batch <- data.raw[as.Date(as.character(data.raw$StartDate)) >= launch_60$start[4] & as.Date(as.character(data.raw$StartDate)) <= launch_60$end[4], ]
+# 
+# # or match batch by survey code
+# data.batch <- data.raw[is.element(data.raw$mTurkCode, batch$Answer.surveycode),]
 
-# older
-data.batch <- data.raw[as.Date(as.character(data.raw$StartDate)) >= launch_60$start[4] & as.Date(as.character(data.raw$StartDate)) <= launch_60$end[4], ]
-
-# or match batch by survey code
-data.batch <- data.raw[is.element(data.raw$mTurkCode, batch$Answer.surveycode),]
+data.batch <- data.raw
 
 nrow(data.batch)
 # data.batch <- data.raw
@@ -145,20 +87,101 @@ for (i in 1:nrow(att.check)) {
   }
 }
 
+data.batch$AttCheck <- att.check$wrong
+
 # check the column att.check$wrong, indicating the number of wrong answers
 View(att.check)
 # those with more than half ATT check Questions wrong
 as.character(att.check$mTurkCode[att.check$wrong > 6])
+
+data.young <- data.batch
+# data.old <- data.batch
+```
+
+combine young and older data
+```{r}
+# check if colnames match
+is.element(colnames(data.young), colnames(data.old))
+is.element(colnames(data.old), colnames(data.young))
+
+tablenames <- data.frame(young = colnames(data.young), old = colnames(data.old))
+View(tablenames)
+
+# combine data
+# data.all <- merge(data.young, data.old, by = colnames(data.young))
+data.all <- rbind(data.young, data.old)
+View(data.all)
+nrow(data.all)
+
+# save 
+save(data.all, file = "data_all_444sub.Rda")
 ```
 
 Check if the Mturker entered the survey code the same as Qualtrilcs code
+Check for multiple responses from same MTurker
+
+Load batch details
+```{r}
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
+batch1 <- read.csv("Batch_3973824_batch_results.csv")
+batch2 <- read.csv("Batch_3983151_batch_results.csv")
+batch3 <- read.csv("Batch_3991931_batch_results.csv")
+batch4 <- read.csv("Batch_3999031_batch_results.csv")
+batch5 <- read.csv("Batch_4003124_batch_results.csv")
+batch6 <- read.csv("Batch_4006085_batch_results.csv")
+batch7 <- read.csv("Batch_4011935_batch_results.csv")
+batch8 <- read.csv("Batch_4012284_batch_results.csv")
+batch9 <- read.csv("Batch_4012287_batch_results.csv")
+batch10 <- read.csv("Batch_4023483_batch_results.csv")
+batch11 <- read.csv("Batch_4023486_batch_results.csv")
+
+batch <- rbind(batch1, batch2, batch3, batch4, batch5, batch6, batch7, batch8, batch9, batch10, batch11)
+
+View(batch)
+
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
+
+save(batch, file="batch_info.Rda")
+```
+
 ```{r}
 # colnames(batch)
 # batch7$Answer.surveycode
 
-is.element(batch$Answer.surveycode, data.batch$mTurkCode)
+is.element(batch$Answer.surveycode, data.all$mTurkCode)
+is.element(data.all$mTurkCode, batch$Answer.surveycode)
+sum(!is.element(data.all$mTurkCode, batch$Answer.surveycode))
+# find the survey code with mistake and correct
+# one subject mistakenly put MTurk ID as survey code (there is reference in the levylab email)
+# 52547965, AFM65NU0UXIGP
 
-batch$Answer.surveycode[2]
+data.all$mTurkCode[149]
+
+batch$Answer.surveycode[batch$WorkerId == "AFM65NU0UXIGP"] = "52547965"
+
+```
+
+Check multiple responses from one subject
+```{r}
+# merge MTurk ID into data sheet
+for (i in 1:(nrow(data.all))) {
+  if (length(as.character(batch$WorkerId[batch$Answer.surveycode == as.character(data.all$mTurkCode[i])])) != 0) {
+    data.all$WorkerId[i] <- as.character(batch$WorkerId[batch$Answer.surveycode == as.character(data.all$mTurkCode[i])])
+  } else {
+    data.all$WorkerId[i] <- NA
+  }
+  
+}
+
+View(data.all)
+
+# those with missing worker ID, should be 0
+sum(is.na(data.all$WorkerId))
+
+nrow(batch)
+
+dupli <- data.all$WorkerId[duplicated(data.all$WorkerId)] 
+sort(dupli)
 ```
 
 
@@ -171,286 +194,6 @@ header$Q1089.1
 bonus.code <- as.numeric(as.character(data.batch$mTurkCode[data.batch$Q1089.1 == 5]))
 # bonus.code
 View(bonus.code)
-```
-
-
-task data
-```{r}
-colnames(data.raw)
-# choice, rating, and ambiguity estimation
-data.task <- data.raw[,c(29:41,43:54,56:79,89:101,103:113,115:139,140:149,151:154,350)]
-# View(data.task)
-# colnames(data.task)
-# change column names for ambiguity estimation
-colnames(data.task)[109:112] <- c("a24.e", "a50.e", "a74.e", "a100.e")
-colnames(data.task)
-
-```
-
-extract choice data
-```{r}
-# extract choice data and attache trial parameters
-# concatenate all subjects
-
-# colnames(trial.param)
-# colnames(data.task)
-
-for (i in 1:nrow(data.task)) {
-  # single subject choice
-  sub.choice <- trial.param
-  choice <- data.task[i, 1:98]
-  id <- data.task$mTurkCode[i] # MTurk code
-  sub.choice$id <- id
-  sub.choice$choice <- as.numeric(t(choice)) # transpose
-  
-  # concatenate
-  if (i == 1) {
-    data.choice <- sub.choice
-  } else {
-    data.choice <- rbind(data.choice, sub.choice)
-  }
-}
-
-# View(data.choice)
-
-# typeof(data.choice$val)
-
-data.choice.mon <- data.choice[data.choice$is_med == 0, ]
-data.choice.med <- data.choice[data.choice$is_med == 1, ]
-
-
-data.choice.mon$val <- as.numeric(as.character(data.choice.mon$val))
-data.choice.mon$prob <- as.factor(data.choice.mon$prob)
-data.choice.mon$ambig <- as.factor(data.choice.mon$ambig)
-
-data.choice.med$val <- as.factor(data.choice.med$val)
-data.choice.med$prob <- as.factor(data.choice.med$prob)
-data.choice.med$ambig <- as.factor(data.choice.med$ambig)
-```
-
-Plot average choice probability by uncertainty level
-```{r}
-# # monetary
-# ggplot(data.choice.mon[data.choice.mon$id == id & data.choice.mon$ambig == 0, ], aes(x = val, y = choice, color = prob, fill = prob)) + 
-#   geom_point(stat = "identity", size = 2, alpha = 0.6) +
-#   geom_line()
-# 
-# ggplot(data.choice.mon[data.choice.mon$id == id & data.choice.mon$ambig != 0, ], aes(x = val, y = choice, color = ambig, fill = ambig)) + 
-#   geom_point(stat = "identity", size = 2, alpha = 0.6) +
-#   geom_line()
-# 
-# # medical
-# ggplot(data.choice.med[data.choice.med$id == id & data.choice.med$ambig == 0, ], aes(x = val, y = choice, color = prob, fill = prob)) + 
-#   geom_point(stat = "identity", size = 2, alpha = 0.6) +
-#   scale_x_discrete(limits = c("Slight", "Moderate", "Major", "Recovery")) +
-#   geom_line()
-
-# typeof(data.choice.med$prob)
-
-# monetary risky
-data_plot <- data_summary(data.choice.mon[data.choice.mon$ambig == 0,], varname = "choice", groupnames = "prob")
-
-ggplot(data_plot, aes(x=prob, y=choice)) +
-  geom_bar(stat="identity", position=position_dodge()) +
-  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
-  ggtitle("Monetary Risky")
-
-# monetary ambiguous
-data_plot <- data_summary(data.choice.mon[data.choice.mon$ambig != 0,], varname = "choice", groupnames = "ambig")
-
-ggplot(data_plot, aes(x=ambig, y=choice)) +
-  geom_bar(stat="identity", position=position_dodge()) +
-  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
-  ggtitle("Monetary Ambiguous")
-
-# medical risky
-data_plot <- data_summary(data.choice.med[data.choice.med$ambig == 0,], varname = "choice", groupnames = "prob")
-
-ggplot(data_plot, aes(x=prob, y=choice)) +
-  geom_bar(stat="identity", position=position_dodge()) +
-  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
-  ggtitle("Medical Risky")
-
-# medical ambiguous
-data_plot <- data_summary(data.choice.med[data.choice.med$ambig != 0,], varname = "choice", groupnames = "ambig")
-
-ggplot(data_plot, aes(x=ambig, y=choice)) +
-  geom_bar(stat="identity", position=position_dodge()) +
-  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
-  ggtitle("Medical Ambiguous")
-
-
-```
-
-plot average choice probability by value
-```{r}
-# monetary risky
-data_plot <- data_summary(data.choice.mon[data.choice.mon$ambig == 0,], varname = "choice", groupnames = "val")
-
-ggplot(data_plot, aes(x=val, y=choice)) +
-  geom_bar(stat="identity", position=position_dodge()) +
-  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
-  scale_x_discrete(limits = c(5,8,12,25)) +
-  ggtitle("Monetary Risky")
-
-# monetary ambiguous
-data_plot <- data_summary(data.choice.mon[data.choice.mon$ambig != 0,], varname = "choice", groupnames = "val")
-
-ggplot(data_plot, aes(x=val, y=choice)) +
-  geom_bar(stat="identity", position=position_dodge()) +
-  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
-  scale_x_discrete(limits = c(5,8,12,25)) +
-  ggtitle("Monetary Risky")
-
-# medical risky
-data_plot <- data_summary(data.choice.med[data.choice.med$ambig == 0,], varname = "choice", groupnames = "val")
-
-ggplot(data_plot, aes(x=val, y=choice)) +
-  geom_bar(stat="identity", position=position_dodge()) +
-  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
-  scale_x_discrete(limits = c("Slight", "Moderate", "Major", "Recovery")) +
-  ggtitle("Medical Risky")
-
-# medical ambiguous
-data_plot <- data_summary(data.choice.med[data.choice.med$ambig != 0,], varname = "choice", groupnames = "val")
-
-ggplot(data_plot, aes(x=val, y=choice)) +
-  geom_bar(stat="identity", position=position_dodge()) +
-  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
-  scale_x_discrete(limits = c("Slight", "Moderate", "Major", "Recovery")) +
-  ggtitle("Medical Ambiguous")
-```
-
-individual subject choice data
-```{r}
-id_idx = 1
-ids <- data.task$mTurkCode
-
-for (id in ids) {
-  
-  # single subject data
-  sub.mon <- data.choice.mon[data.choice.mon$id == id,]
-  sub.med <- data.choice.med[data.choice.med$id == id,]
-  sub.mon$val <- as.factor(sub.mon$val)
-  
-  # monetary risky
-  data_plot <- data_summary(sub.mon[sub.mon$ambig == 0,], varname = "choice", groupnames = c("val", "prob"))
-  
-  p1 <- ggplot(data_plot, aes(x=val, y=prob, fill=choice)) + 
-    geom_tile(color = "white")+
-    scale_x_discrete(breaks = c(5,8,12,25)) +
-    scale_fill_gradient(limits = c(0,1)) +
-    theme(panel.grid = element_blank(),
-          panel.background = element_blank()) +
-    ggtitle(paste("Monetary Risky, Sub", as.character(id))) +
-    xlab("Value ($)") + ylab("Risk Level")
-  
-  # monetary ambiguous
-  data_plot <- data_summary(sub.mon[sub.mon$ambig != 0,], varname = "choice", groupnames = c("val", "ambig"))
-  
-  p2 <- ggplot(data_plot, aes(x=val, y=ambig, fill=choice)) + 
-    geom_tile(color = "white")+
-    scale_x_discrete(breaks = c(5,8,12,25)) +
-    scale_fill_gradient(limits = c(0,1)) +
-    theme(panel.grid = element_blank(),
-          panel.background = element_blank()) +
-    ggtitle("Monetary Ambiguous") +
-    xlab("Value ($)") + ylab("Ambiguity Level")
-  
-  # medical risky
-  data_plot <- data_summary(sub.med[sub.med$ambig == 0,], varname = "choice", groupnames = c("val", "prob"))
-  
-  p3 <- ggplot(data_plot, aes(x=val, y=prob, fill=choice)) + 
-    geom_tile(color = "white")+
-    scale_x_discrete(limits = c("Slight", "Moderate", "Major", "Recovery")) +
-    scale_fill_gradient(limits = c(0,1)) +
-    theme(panel.grid = element_blank(),
-          panel.background = element_blank()) +
-    ggtitle("Medical Risky") +
-    xlab("Outcome") + ylab("Risk Level")
-  
-  # medical ambiguous
-  data_plot <- data_summary(sub.med[sub.med$ambig != 0,], varname = "choice", groupnames = c("val", "ambig"))
-  
-  p4 <- ggplot(data_plot, aes(x=val, y=ambig, fill=choice)) + 
-    geom_tile(color = "white")+
-    scale_x_discrete(limits = c("Slight", "Moderate", "Major", "Recovery")) +
-    scale_fill_gradient(limits = c(0,1)) +
-    theme(panel.grid = element_blank(),
-          panel.background = element_blank()) +
-    ggtitle("Medical Ambiguous") +
-    xlab("Outcome") + ylab("Ambiguity Level")
-  
-  figure <- ggarrange(p1,p2,p3,p4,
-                      ncol = 2, nrow = 2) + border(size = 2)
-
-  print(figure)
-  
-  annotate_figure(figure,
-                  top = text_grob(paste("MTurkCode", as.character(id)))
-                  )
-  
-
-}
-```
-
-
-demographic block
-```{r}
-data.demo <- data.raw[,c(155:164,166:171, 350)]
-View(data.demo)
-colnames(data.demo)
-
-data.demo$Q937 <- as.numeric(as.character(data.demo$Q937)) + 17 # correct coding
-
-# age
-ggplot(data.demo, aes(x=Q937)) +
-  geom_histogram(position = "identity", bins = 20) +
-  labs(x = "Age")
-
-# geo
-data.demo$Q959 <- as.numeric(as.character(data.demo$Q959))
-data(zipcode)
-data.demo$zipcode<- clean.zipcodes(data.demo$Q959)
-
-#size by zip
-data.zipcode<-aggregate(data.frame(count=data.demo$mTurkCode),list(zip=data.demo$zipcode),length)
-geo<- merge(data.zipcode, zipcode, by='zip')
-
-us<-map_data('state')
-
-ggplot(geo,aes(longitude,latitude)) +
-  geom_polygon(data=us,aes(x=long,y=lat,group=group),color='gray',fill=NA,alpha=.35) +
-  geom_point(aes(color = count),size=1.2,alpha=0.5) + 
-  # scale_colour_gradient(high="dark blue", low="light blue") +
-  scale_color_continuous(breaks = c(1,2), labels = c(1,2)) +
-  theme(panel.grid = element_blank(),
-        axis.title = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks.x = element_blank(),
-        axis.ticks.y = element_blank(),
-        panel.background = element_blank()) +
-  xlim(-125,-65)+ylim(20,50)
-  
-
-```
-
-ambiguity block
-```{r}
-colnames(data.raw)
-```
-
-risk exposure block
-```{r}
-data.raw$Q1027
-# those who themselves were infected with COVID-19
-data.raw$mTurkCode[data.raw$Q1027 == 1]
-# 2-immediate family, 3 - extended family, 9 - no
-```
-
-action block
-```{r}
-
 ```
 
 
