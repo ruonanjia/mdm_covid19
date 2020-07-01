@@ -1,6 +1,7 @@
 ---
 title: "R Notebook"
 output: html_notebook
+author: ruonanjia
 ---
 
 load library
@@ -18,6 +19,17 @@ load("data_all_444sub.Rda")
 load("data_all_444sub_header.Rda")
 
 ```
+
+take only the first response of the repeated subjects
+```{r}
+dupli <- data.all$WorkerId[duplicated(data.all$WorkerId)] 
+dupli
+length(dupli)
+
+data.repeat <- data.all[is.element(data.all$WorkerId, dupli),]
+nrow(data.repeat)
+```
+
 
 ```{r}
 colnames(data.all)[c(155:164,166:171, 353)]
@@ -68,13 +80,33 @@ ggplot(geo,aes(longitude,latitude)) +
 ambiguity block
 ```{r}
 colnames(data.all)
+
+# Q965 - Q1023
+ambig_col <- c(193:198)
+
+# Q975 how well informed you feel - Q985
+for (i in 193:198) {
+  data.all[, i] <- as.numeric(as.character(data.all[, i])) - 5
+  data.all[data.all[,i]!=1, i] <- data.all[data.all[,i]!=1, i] - 6
+}
+
+data.all[,195]
+
+library("PerformanceAnalytics")
+my_data <- data.all[,193:198]
+colnames(my_data) <- c("self", "government", "scientist", "healthcare", "economist", "familyfriends")
+
+chart.Correlation(my_data, histogram=TRUE, pch=19)
+
+data.all$Q975 <- as.numeric(as.character(data.all$Q975)) - 5
+data.all$Q975[data.all$Q975!=1] <- data.all$Q975[data.all$Q975!=1] - 6 
 ```
 
 risk exposure block
 ```{r}
-data.raw$Q1027
+data.all$Q1027
 # those who themselves were infected with COVID-19
-data.raw$mTurkCode[data.raw$Q1027 == 1]
+data.all$mTurkCode[data.all$Q1027 == 1]
 # 2-immediate family, 3 - extended family, 9 - no
 ```
 

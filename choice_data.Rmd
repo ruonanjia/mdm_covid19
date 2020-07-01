@@ -1,6 +1,7 @@
 ---
 title: "R Notebook"
 output: html_notebook
+author: ruonanjia
 ---
 load library
 ```{r}
@@ -51,11 +52,13 @@ data_meanse <- function(x) {
 
 ```
 
+
+load data
 ```{r}
 setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
 load("data_all_444sub.Rda")
 load("data_all_444sub_header.Rda")
-
+trial.param <- read.csv("trialsinfo_COVID_19.csv", header = TRUE, )
 ```
 
 
@@ -63,7 +66,7 @@ task data
 ```{r}
 colnames(data.all)
 # choice, rating, and ambiguity estimation
-data.task <- data.all[,c(29:41,43:54,56:79,89:101,103:113,115:139,140:149,151:154,350)]
+data.task <- data.all[,c(29:41,43:54,56:79,89:101,103:113,115:139,140:149,151:154,353)]
 # View(data.task)
 # colnames(data.task)
 # change column names for ambiguity estimation
@@ -185,7 +188,7 @@ ggplot(data_plot, aes(x=val, y=choice)) +
   geom_bar(stat="identity", position=position_dodge()) +
   geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
   scale_x_discrete(limits = c(5,8,12,25)) +
-  ggtitle("Monetary Risky")
+  ggtitle("Monetary Ambiguous")
 
 # medical risky
 data_plot <- data_summary(data.choice.med[data.choice.med$ambig == 0,], varname = "choice", groupnames = "val")
@@ -208,7 +211,7 @@ ggplot(data_plot, aes(x=val, y=choice)) +
 
 individual subject choice data
 ```{r}
-id_idx = 1
+# id_idx = 1
 ids <- data.task$mTurkCode
 
 for (id in ids) {
