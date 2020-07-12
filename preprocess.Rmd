@@ -10,10 +10,10 @@ setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
 # data downloaded from qualtrics, with numeric code 
 
 # young subjects
-# data.raw = read.csv("MDM_R&A_Task_withGraphics_COVID-19_July+12,+2020_16.38.csv")
+data.raw = read.csv("MDM_R&A_Task_withGraphics_COVID-19_July+12,+2020_16.38.csv")
 
 # older adults
-data.raw = read.csv("MDM_R&A_Task_withGraphics_COVID-19_Older_July+12,+2020_16.39.csv")
+# data.raw = read.csv("MDM_R&A_Task_withGraphics_COVID-19_Older_July+12,+2020_16.39.csv")
 
 # read trial parameters of the DM task
 trial.param <- read.csv("trialsinfo_COVID_19.csv", header = TRUE, )
@@ -121,6 +121,7 @@ nrow(data.all)
 
 # save 
 save(data.all, file = "data_all_444sub_rename.Rda")
+save(header, file = "data_all_444sub_rename_header.Rda")
 ```
 
 Check if the Mturker entered the survey code the same as Qualtrilcs code
@@ -145,9 +146,9 @@ batch <- rbind(batch1, batch2, batch3, batch4, batch5, batch6, batch7, batch8, b
 
 View(batch)
 
-setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
-
-save(batch, file="batch_info.Rda")
+# setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
+# 
+# save(batch, file="batch_info.Rda")
 ```
 
 ```{r}
