@@ -4,22 +4,16 @@ output: html_notebook
 author: ruonanjia
 ---
 
-
-
-
 read data
 ```{r}
 setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
 # data downloaded from qualtrics, with numeric code 
 
-# 60 subjects
-# data.raw = read.csv("MDM_R&A_Task_withGraphics_COVID-19_April+9,+2020_19.15.csv")
-
-# 110 subjects
-# data.raw = read.csv("MDM_R&A_Task_withGraphics_COVID-19_April+15,+2020_23.00.csv")
+# young subjects
+# data.raw = read.csv("MDM_R&A_Task_withGraphics_COVID-19_July+12,+2020_16.38.csv")
 
 # older adults
-data.raw = read.csv("MDM_R&A_Task_withGraphics_COVID-19_May+8,+2020_11.30.csv")
+data.raw = read.csv("MDM_R&A_Task_withGraphics_COVID-19_Older_July+12,+2020_16.39.csv")
 
 # read trial parameters of the DM task
 trial.param <- read.csv("trialsinfo_COVID_19.csv", header = TRUE, )
@@ -44,7 +38,9 @@ data.raw <- data.raw[-c(1,2),]
 # View(header)
 # get rid of preview and incomplete data
 data.raw <- data.raw[!data.raw$DistributionChannel == "preview",]
-data.raw <- data.raw[data.raw$Finished == 1, ]
+# data.raw <- data.raw[data.raw$Finished == 1, ] # use progress.
+data.raw$Progress <- as.numeric(as.character(data.raw$Progress))
+data.raw <- data.raw[data.raw$Progress > 75, ]
 data.raw <- data.raw[!is.na(as.numeric(as.character(data.raw$mTurkCode))), ]
 
 # get rid of lab testing data (by comparing survey startdate)
@@ -70,7 +66,7 @@ data.batch <- data.raw
 nrow(data.batch)
 # data.batch <- data.raw
 colnames(data.batch)
-ac.id <- c("Q377", "Q1194", "AC5", "Q1077", "Q994", "Q1017", "AC9", "AC10", "Q1899", "AC4", "AC7", "AC8")
+ac.id <- c("AC_eg", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7", "AC8", "AC9", "AC10", "AC11", "AC12")
 
 # col.no <- c(20,24,42,55,80,84,102,114,150,165,212,266,350)
 col.no <- c(20,24,42,55,80,84,102,114,150,165,212,269,353)
@@ -94,18 +90,28 @@ View(att.check)
 # those with more than half ATT check Questions wrong
 as.character(att.check$mTurkCode[att.check$wrong > 6])
 
-data.young <- data.batch
-# data.old <- data.batch
+# data.young <- data.batch
+data.old <- data.batch
 ```
 
 combine young and older data
 ```{r}
 # check if colnames match
-is.element(colnames(data.young), colnames(data.old))
-is.element(colnames(data.old), colnames(data.young))
+match_yo <- is.element(colnames(data.young), colnames(data.old))
+match_oy <- is.element(colnames(data.old), colnames(data.young))
 
-tablenames <- data.frame(young = colnames(data.young), old = colnames(data.old))
-View(tablenames)
+which(match_yo == FALSE)
+which(match_oy == FALSE)
+
+# a few column names do not match
+colnames(data.young)[!match_yo]
+colnames(data.old)[!match_yo]
+
+# make column names the same
+colnames(data.old) <- colnames(data.young)
+
+# tablenames <- data.frame(young = colnames(data.young), old = colnames(data.old))
+# View(tablenames)
 
 # combine data
 # data.all <- merge(data.young, data.old, by = colnames(data.young))
@@ -114,7 +120,7 @@ View(data.all)
 nrow(data.all)
 
 # save 
-save(data.all, file = "data_all_444sub.Rda")
+save(data.all, file = "data_all_444sub_rename.Rda")
 ```
 
 Check if the Mturker entered the survey code the same as Qualtrilcs code
