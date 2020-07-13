@@ -1,7 +1,9 @@
 ---
 title: "R Notebook"
-output: html_notebook
-author: ruonanjia
+author: "ruonanjia"
+output:
+  pdf_document: default
+  html_notebook: default
 ---
 load library
 ```{r}
@@ -56,22 +58,23 @@ data_meanse <- function(x) {
 load data
 ```{r}
 setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
-load("data_all_444sub.Rda")
-load("data_all_444sub_header.Rda")
+load("data_all_444sub_rename.Rda")
+load("data_all_444sub_rename_header.Rda")
 trial.param <- read.csv("trialsinfo_COVID_19.csv", header = TRUE, )
 ```
 
 
 task data
 ```{r}
-colnames(data.all)
+# colnames(data.all)
+# colnames(data.all)[c(29:41,43:54,56:79,89:101,103:113,115:139,140:149,151:154,353)]
 # choice, rating, and ambiguity estimation
 data.task <- data.all[,c(29:41,43:54,56:79,89:101,103:113,115:139,140:149,151:154,353)]
 # View(data.task)
 # colnames(data.task)
 # change column names for ambiguity estimation
-colnames(data.task)[109:112] <- c("a24.e", "a50.e", "a74.e", "a100.e")
-colnames(data.task)
+# colnames(data.task)[109:112] <- c("a24.e", "a50.e", "a74.e", "a100.e")
+# colnames(data.task)
 
 ```
 
@@ -209,6 +212,24 @@ ggplot(data_plot, aes(x=val, y=choice)) +
   ggtitle("Medical Ambiguous")
 ```
 
+
+individual subject choice data
+```{r}
+# id_idx = 1
+ids <- data.task$mTurkCode
+
+for (id in ids) {
+  
+  # single subject data
+  sub.mon <- data.choice.mon[data.choice.mon$id == id,]
+  sub.med <- data.choice.med[data.choice.med$id == id,]
+  sub.mon$val <- as.factor(sub.mon$val)
+  
+  sub.mon
+}  
+```  
+
+
 individual subject choice data
 ```{r}
 # id_idx = 1
@@ -277,7 +298,51 @@ for (id in ids) {
   annotate_figure(figure,
                   top = text_grob(paste("MTurkCode", as.character(id)))
                   )
-  
 
 }
 ```
+
+
+```{r}
+install.packages(c("devtools","mvtnorm","loo","coda", "dagitty"))
+install.packages("backports")
+library(devtools)
+devtools::install_github("rmcelreath/rethinking")
+
+library(rethinking)
+```
+
+
+Behavioral fitting
+```{r}
+data.choice.mon$val <- data.choice.mon$val * 100
+
+data.choice.mon$prob.ref <- 1 * rep(1, length(data.choice.mon$prob))
+data.choice.mon$ambig.ref <- 0 * rep(1, length(data.choice.mon$prob))
+data.choice.mon$val.ref <- 500 * rep(1, length(data.choice.mon$prob))
+
+fit.choice <- ulam(
+  alist(
+    choice ~ dbern(1, choice_prob), # sample from bernoulli distribution
+    choice_prob <- 1 / (1 + exp(slope[id]*(uL-uR))), # choice probablity of the lottery
+    uL <- (prob - beta[id] * (ambig/2)) * val ^alpha[id], # subjective value of the lottery
+    uR <- (prob.ref - beta[id] * (ambig.ref/2)) * val.ref ^alpha[id], # subjective value of the reference
+    alpha[id] ~ dnorm(miu_a, sigma_a),
+    beta[id] ~ dnorm(miu_b, sigma_b),
+    slope[id] ~ dnorm(miu_s, sigma_s),
+    
+    # group level priors
+    miu_a ~ dnorm(1, 1),
+    sigma_a ~ dexp(1),
+    
+    miu_b ~ dnorm(0, 1),
+    sigma_b ~ dexp(1),
+    
+    miu_s ~ dnorm(-2, 3),
+    sigma_s ~ dexp(1),
+  ), 
+  data = data.choice.mon, iter = 5e4, chains=4, cores = 2
+)
+```
+
+
