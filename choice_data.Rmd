@@ -214,24 +214,54 @@ ggplot(data_plot, aes(x=val, y=choice)) +
 ```
 
 
-individual subject choice data
+individual subject choice data model free attitude
 ```{r}
 # id_idx = 1
 ids <- data.task$mTurkCode
+risk.mon <- rep(0,length(ids))
+ambig_corr.mon <- rep(0,length(ids))
+risk.med <- rep(0,length(ids))
+ambig_corr.med <- rep(0,length(ids))
+error.mon <- rep(0,length(ids))
+error.med <- rep(0,length(ids))
+
+idx = 0
 
 for (id in ids) {
+  idx <- idx + 1
   
   # single subject data
   sub.mon <- data.choice.mon[data.choice.mon$id == id,]
   sub.med <- data.choice.med[data.choice.med$id == id,]
   sub.mon$val <- as.factor(sub.mon$val)
   
-  sub.mon
+  error.mon[idx] = mean(sub.mon$choice[sub.mon$val==5])
+  error.med[idx] = mean(sub.med$choice[sub.med$val=="Slight"])
+  
+  risk.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0])
+  ambig_corr.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig!=0])-
+    mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0 & sub.mon$prob==0.5])
+  
+  risk.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0])
+  ambig_corr.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig!=0])-
+    mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0 & sub.med$prob==0.5])
+  
 }  
-```  
+
+data.attitude <- data.frame(mTurkCode = ids,
+                            risk.mon, ambig_corr.mon, risk.med, ambig_corr.med,
+                            error.mon, error.med)
+
+```
+
+save model free attitude
+```{r}
+setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
+save(data.attitude, file="data_all_444sub_attitude.Rda")
+```
 
 
-individual subject choice data
+plot individual subject choice data
 ```{r}
 # id_idx = 1
 ids <- data.task$mTurkCode
@@ -303,7 +333,7 @@ for (id in ids) {
 }
 ```
 
-
+Try model fitting by bayesian
 ```{r}
 # install.packages(c("devtools","mvtnorm","loo","coda", "dagitty"))
 # install.packages("backports")
