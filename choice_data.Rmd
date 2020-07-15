@@ -57,7 +57,8 @@ data_meanse <- function(x) {
 
 load data
 ```{r}
-setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
+# setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
+setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
 load("data_all_444sub_rename.Rda")
 load("data_all_444sub_rename_header.Rda")
 trial.param <- read.csv("trialsinfo_COVID_19.csv", header = TRUE, )
@@ -304,10 +305,10 @@ for (id in ids) {
 
 
 ```{r}
-install.packages(c("devtools","mvtnorm","loo","coda", "dagitty"))
-install.packages("backports")
-library(devtools)
-devtools::install_github("rmcelreath/rethinking")
+# install.packages(c("devtools","mvtnorm","loo","coda", "dagitty"))
+# install.packages("backports")
+# library(devtools)
+# devtools::install_github("rmcelreath/rethinking")
 
 library(rethinking)
 ```
@@ -321,28 +322,106 @@ data.choice.mon$prob.ref <- 1 * rep(1, length(data.choice.mon$prob))
 data.choice.mon$ambig.ref <- 0 * rep(1, length(data.choice.mon$prob))
 data.choice.mon$val.ref <- 500 * rep(1, length(data.choice.mon$prob))
 
-fit.choice <- ulam(
+# make id: 1 ~ number of subjects
+no_trials = sum(data.choice.mon$id == data.choice.mon$id[1])
+data.choice.mon$subid = NaN
+
+for (i in c(1:444) ) {
+  data.choice.mon$subid[(1+no_trials*(i-1)):(no_trials*i)] <- t(rep(i, no_trials))
+}
+
+# data.choice.mon$id <-  as.integer(as.character(data.choice.mon$id))
+
+data_list <- list(
+  choice = as.numeric(as.character(data.choice.mon$choice)),
+  prob = as.numeric(as.character(data.choice.mon$prob)),
+  ambig = as.numeric(as.character(data.choice.mon$ambig)),
+  val = as.numeric(as.character(data.choice.mon$val)),
+  prob_ref = as.numeric(as.character(data.choice.mon$prob.ref)),
+  ambig_ref = as.numeric(as.character(data.choice.mon$ambig.ref)),
+  val_ref = as.numeric(as.character(data.choice.mon$val.ref)),
+  id = as.integer(data.choice.mon$subid)
+)
+
+fit.choice.multi <- ulam(
   alist(
-    choice ~ dbern(1, choice_prob), # sample from bernoulli distribution
-    choice_prob <- 1 / (1 + exp(slope[id]*(uL-uR))), # choice probablity of the lottery
+    choice ~ dbinom(1, choice_prob), # sample from bernoulli distribution
+    logit(choice_prob) <- (uL-uR)/slope[id],
+    # choice_prob <- 1 / (1 + exp(slope[id]*(uL-uR))), # choice probablity of the lottery
     uL <- (prob - beta[id] * (ambig/2)) * val ^alpha[id], # subjective value of the lottery
-    uR <- (prob.ref - beta[id] * (ambig.ref/2)) * val.ref ^alpha[id], # subjective value of the reference
-    alpha[id] ~ dnorm(miu_a, sigma_a),
-    beta[id] ~ dnorm(miu_b, sigma_b),
-    slope[id] ~ dnorm(miu_s, sigma_s),
+    uR <- (prob_ref - beta[id] * (ambig_ref/2)) * val_ref ^alpha[id], # subjective value of the reference
+    
+    # alpha[id] ~ dnorm(miu_a, sigma_a),
+    # beta[id] ~ dnorm(miu_b, sigma_b),
+    # slope[id] ~ dnorm(miu_s, sigma_s),
+    
+    alpha[id] ~ dnorm(1, 1),
+    beta[id] ~ dnorm(0, 1),
+    slope[id] ~ dnorm(-2, 3)
     
     # group level priors
-    miu_a ~ dnorm(1, 1),
-    sigma_a ~ dexp(1),
-    
-    miu_b ~ dnorm(0, 1),
-    sigma_b ~ dexp(1),
-    
-    miu_s ~ dnorm(-2, 3),
-    sigma_s ~ dexp(1),
+    # miu_a ~ dnorm(1, 1),
+    # sigma_a ~ dexp(1),
+    # 
+    # miu_b ~ dnorm(0, 1),
+    # sigma_b ~ dexp(1),
+    # 
+    # miu_s ~ dnorm(-2, 3),
+    # sigma_s ~ dexp(1),
   ), 
-  data = data.choice.mon, iter = 5e4, chains=4, cores = 2
+  data = data_list, iter = 1e3, chains=4,
+  start = list(alpha = rep(1, 444), beta = rep(0, 444), sigma = rep(-2, 444))
+)
+
+# no multilevel
+fit.choice <- ulam(
+  alist(
+    choice ~ dbinom(1, choice_prob), # sample from bernoulli distribution
+    choice_prob <- 1 / (1 + exp(slope*(uL-uR))), # choice probablity of the lottery
+    uL <- (prob - beta * (ambig/2)) * val ^alpha, # subjective value of the lottery
+    uR <- (prob_ref - beta * (ambig_ref/2)) * val_ref ^alpha, # subjective value of the reference
+    
+    
+    alpha ~ dnorm(1, 1),
+    beta ~ dnorm(0, 1),
+    slope ~ dnorm(-2, 3)
+    
+  ), 
+  data = data_list, iter = 1e4, chains=4
 )
 ```
+
+Try quap
+```{r}
+fit.choice.quap <- quap(
+  alist(
+    choice ~ dbinom(1, choice_prob), # sample from bernoulli distribution
+    choice_prob <- 1 / (1 + exp(slope[id]*(uL-uR))), # choice probablity of the lottery
+    uL <- (prob - beta[id] * (ambig/2)) * val ^alpha[id], # subjective value of the lottery
+    uR <- (prob_ref - beta[id] * (ambig_ref/2)) * val_ref ^alpha[id], # subjective value of the reference
+    
+    # alpha[id] ~ dnorm(miu_a, sigma_a),
+    # beta[id] ~ dnorm(miu_b, sigma_b),
+    # slope[id] ~ dnorm(miu_s, sigma_s),
+    
+    alpha[id] ~ dnorm(1, 1),
+    beta[id] ~ dnorm(0, 1),
+    slope[id] ~ dnorm(-2, 3)
+    
+    # group level priors
+    # miu_a ~ dnorm(1, 1),
+    # sigma_a ~ dexp(1),
+    # 
+    # miu_b ~ dnorm(0, 1),
+    # sigma_b ~ dexp(1),
+    # 
+    # miu_s ~ dnorm(-2, 3),
+    # sigma_s ~ dexp(1),
+  ), 
+  data = data_list
+)
+```
+
+
 
 
