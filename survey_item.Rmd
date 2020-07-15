@@ -3,6 +3,24 @@ title: "R Notebook"
 output: html_notebook
 author: ruonanjia
 ---
+```{r}
+# Download package tarball from CRAN archive
+
+url <- "https://cran.r-project.org/src/contrib/Archive/zipcode/zipcode_1.0.tar.gz"
+pkgFile <- "zipcode_1.0.tar.gz"
+download.file(url = url, destfile = pkgFile)
+
+# Install dependencies
+
+install.packages(c("ada", "ipred", "evd"))
+
+# Install package
+install.packages(pkgs=pkgFile, type="source", repos=NULL)
+
+# Delete package tarball
+unlink(pkgFile)
+```
+
 
 load library
 ```{r}
@@ -14,9 +32,10 @@ library(ggpubr)
 
 load data
 ```{r}
-setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
-load("data_all_444sub.Rda")
-load("data_all_444sub_header.Rda")
+# setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
+setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
+load("data_all_444sub_rename.Rda")
+load("data_all_444sub_rename_header.Rda")
 
 ```
 
@@ -32,6 +51,7 @@ nrow(data.repeat)
 
 
 ```{r}
+colnames(data.all)
 colnames(data.all)[c(155:164,166:171, 353)]
 t(header[1, c(155:164,166:171, 353)])
 ```
@@ -43,17 +63,17 @@ data.demo <- data.all[,c(155:164,166:171, 353)]
 View(data.demo)
 colnames(data.demo)
 
-data.demo$Q937 <- as.numeric(as.character(data.demo$Q937)) + 17 # correct coding
+data.demo$age <- as.numeric(as.character(data.demo$age)) + 17 # correct coding
 
 # age
-ggplot(data.demo, aes(x=Q937)) +
+ggplot(data.demo, aes(x=age)) +
   geom_histogram(position = "identity", bins = 20) +
   labs(x = "Age")
 
 # geo
-data.demo$Q959 <- as.numeric(as.character(data.demo$Q959))
+data.demo$zip_postal_code <- as.numeric(as.character(data.demo$zip_postal_code))
 data(zipcode)
-data.demo$zipcode<- clean.zipcodes(data.demo$Q959)
+data.demo$zipcode<- clean.zipcodes(data.demo$zip_postal_code)
 
 #size by zip
 data.zipcode<-aggregate(data.frame(count=data.demo$mTurkCode),list(zip=data.demo$zipcode),length)
@@ -80,7 +100,41 @@ ggplot(geo,aes(longitude,latitude)) +
 ambiguity block
 ```{r}
 colnames(data.all)
+ambig_col <- c(172:220)
+colnames(data.all)[ambig_col]
+```
 
+News source
+```{r}
+# rank news source
+# ambig1_news_sources_1 - ambig1_news_sources_8_TEXT
+
+# source of news influencing opinion
+# ambig1_sourcebelief_1 - ambig1_sourcebelief_7_TEXT
+
+# time consuming news perday
+hist(as.numeric(as.character(data.all$ambig1_news_perday)))
+
+```
+
+Health impact vs. economics impact
+```{r}
+# data.all$ambig2_health_impact
+# data.all$ambig2_economics
+hist(as.numeric(as.character(data.all$ambig2_health_impact)),
+     main = "Should consider health impact",
+     xlab = "Extent")
+hist(as.numeric(as.character(data.all$ambig2_economics)),
+     main = "Should consider economics impact",
+     xlab = "Extent")
+
+ggplot(data.all, aes(x=ambig2_health_impact, y=ambig2_economics)) + 
+  geom_bin2d() +
+  xlab("health") + ylab("economics") + 
+  ggtitle("2D histogram")
+```
+
+```{r}
 # Q965 - Q1023
 ambig_col <- c(193:198)
 
