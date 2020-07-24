@@ -28,6 +28,7 @@ library(ggplot2)
 library(zipcode) # install only available through archive
 library(maps)
 library(ggpubr)
+library("PerformanceAnalytics")
 ```
 
 load data
@@ -36,8 +37,27 @@ load data
 setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
 load("data_all_444sub_rename.Rda")
 load("data_all_444sub_rename_header.Rda")
+load("data_all_444sub_attitude.Rda")
 
+# combine data
+data.all <- merge(data.all, data.attitude, by = "mTurkCode")
+data.all$age <- as.numeric(as.character(data.all$age)) + 17 # correct coding
 ```
+
+save into spread sheet
+```{r}
+# setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
+# write.csv(header,"data_header.csv", row.names = FALSE)
+# write.csv(data.all,"data_all_444sub.csv", row.names = FALSE)
+```
+
+Separate young and old, compare with 60 yr
+```{r}
+data.all$is.young <- 1
+data.all$is.young[data.all$age >= 60] = 0
+data.all$is.young <- as.factor(data.all$is.young)
+```
+
 
 take only the first response of the repeated subjects
 ```{r}
@@ -49,21 +69,21 @@ data.repeat <- data.all[is.element(data.all$WorkerId, dupli),]
 nrow(data.repeat)
 ```
 
-
+Look at column names
 ```{r}
 colnames(data.all)
-colnames(data.all)[c(155:164,166:171, 353)]
-t(header[1, c(155:164,166:171, 353)])
 ```
 
 
 demographic block
 ```{r}
+colnames(data.all)[c(155:164,166:171, 353)]
+t(header[1, c(155:164,166:171, 353)])
+
 data.demo <- data.all[,c(155:164,166:171, 353)]
+
 View(data.demo)
 colnames(data.demo)
-
-data.demo$age <- as.numeric(as.character(data.demo$age)) + 17 # correct coding
 
 # age
 ggplot(data.demo, aes(x=age)) +
@@ -97,6 +117,26 @@ ggplot(geo,aes(longitude,latitude)) +
 
 ```
 
+
+behavioral correlation with age
+```{r}
+ggplot(data.all[data.all$error.med<0.5,], aes(x=age, y=ambig_corr.med)) + 
+  geom_point() +
+  xlab("Age") + ylab("model-free ambig medical")
+
+ggplot(data.all[data.all$error.mon<0.5,], aes(x=age, y=ambig_corr.mon)) + 
+  geom_point() +
+  xlab("Age") + ylab("model-free ambig Monetary")
+
+ggplot(data.all[data.all$error.med<0.5,], aes(x=age, y=risk.med)) + 
+  geom_point() +
+  xlab("Age") + ylab("model-free risk Medical")
+
+ggplot(data.all[data.all$error.mon<0.5,], aes(x=age, y=risk.mon)) + 
+  geom_point() +
+  xlab("Age") + ylab("model-free risk Monetary")
+```
+
 ambiguity block
 ```{r}
 colnames(data.all)
@@ -121,39 +161,178 @@ Health impact vs. economics impact
 ```{r}
 # data.all$ambig2_health_impact
 # data.all$ambig2_economics
-hist(as.numeric(as.character(data.all$ambig2_health_impact)),
-     main = "Should consider health impact",
-     xlab = "Extent")
-hist(as.numeric(as.character(data.all$ambig2_economics)),
-     main = "Should consider economics impact",
-     xlab = "Extent")
+
+x_labels = c("Extremely", "A lot", "Somewhat", "Uncertain", "Not much", "Not a lot", "Not at all")
+
+ggplot(data.all, aes(x = ambig2_health_impact, fill=is.young)) +
+  geom_histogram(stat="count") +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("Should consider health impact") +
+  scale_x_discrete(labels=x_labels) +
+  xlab("Extent")
+
+ggplot(data.all, aes(x = ambig2_economics, fill=is.young)) +
+  geom_histogram(stat="count") +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  scale_x_discrete(labels=x_labels) +
+  ggtitle("Should consider economics impact") +
+  xlab("Extent")
 
 ggplot(data.all, aes(x=ambig2_health_impact, y=ambig2_economics)) + 
   geom_bin2d() +
+  scale_x_discrete(labels=x_labels) +
+  scale_y_discrete(labels=x_labels) +
   xlab("health") + ylab("economics") + 
-  ggtitle("2D histogram")
+  ggtitle("2D histogram") +
+  theme_bw()
 ```
 
+Health and economics impact, correlation with uncertainty attitude
 ```{r}
-# Q965 - Q1023
-ambig_col <- c(193:198)
 
-# Q975 how well informed you feel - Q985
-for (i in 193:198) {
-  data.all[, i] <- as.numeric(as.character(data.all[, i])) - 5
-  data.all[data.all[,i]!=1, i] <- data.all[data.all[,i]!=1, i] - 6
+data.all$ambig2_health_impact
+sum(data.all$error.med<0.5)
+ggplot(data.all[data.all$error.med<0.5,], aes(x=ambig2_health_impact, y=ambig_corr.med)) + 
+  geom_point() +
+  xlab("Considering health impact") + ylab("model-free ambig medical")
+
+ggplot(data.all[data.all$error.mon<0.5,], aes(x=ambig2_health_impact, y=ambig_corr.mon)) + 
+  geom_point() +
+  xlab("Considering health impact") + ylab("model-free ambig monetary")
+
+ggplot(data.all[data.all$error.med<0.5,], aes(x=ambig2_economics, y=ambig_corr.med)) + 
+  geom_point() +
+  xlab("Considering econ impact") + ylab("model-free ambig medical")
+
+ggplot(data.all[data.all$error.mon<0.5,], aes(x=ambig2_economics, y=ambig_corr.mon)) + 
+  geom_point() +
+  xlab("Considering econ impact") + ylab("model-free ambig monetary")
+```
+
+Monetary and medical attitude correlation
+```{r}
+sum(data.all$error.med<0.5 & data.all$error.mon<0.5)
+ggplot(data.all[data.all$error.med<0.5 & data.all$error.mon<0.5,], aes(x=ambig_corr.mon, y=ambig_corr.med)) + 
+  geom_point() +
+  geom_smooth(method="lm")
+
+cor(data.all$ambig_corr.mon[data.all$error.med<0.5 & data.all$error.mon<0.5],
+    data.all$ambig_corr.med[data.all$error.med<0.5 & data.all$error.mon<0.5])
+
+ggplot(data.all[data.all$error.med<0.5 & data.all$error.mon<0.5,], aes(x=risk.mon, y=risk.med)) + 
+  geom_point()
+
+ggplot(data.all[data.all$error.mon<0.5,], aes(x=risk.mon, y=ambig_corr.mon)) + 
+  geom_point()
+
+cor(data.all$risk.mon[data.all$error.mon<0.5], data.all$ambig_corr.mon[data.all$error.mon<0.5])
+
+ggplot(data.all[data.all$error.med<0.5,], aes(x=risk.med, y=ambig_corr.med)) + 
+  geom_point()
+
+cor(data.all$risk.med[data.all$error.med<0.5], data.all$ambig_corr.med[data.all$error.med<0.5])
+
+```
+
+How well informed 
+```{r}
+colnames(data.all)[c(194, 183, 195:199,391)]
+
+# for (i in 193:198) {
+#   data.all[, i] <- as.numeric(as.character(data.all[, i])) - 5
+#   data.all[data.all[,i]!=1, i] <- data.all[data.all[,i]!=1, i] - 6
+# }
+
+my_data <- data.all[,c(194, 183, 195:199, 391)]
+labels <- c("Very","Moderately","Somewhat","Uncertain","Somewhat not", "Moderately not","Very not")
+
+colnames(my_data) <- c("self", "local_gov", "national_gov", "scientist", "healthcare", "economist", "familyfriends","is.young")
+
+# look at histogram
+# for (i in 1:length(my_data)) {
+#   my_data[, i] <- as.numeric(as.character(my_data[, i]))
+# }
+# chart.Correlation(my_data, histogram=TRUE, pch=19)
+
+for (i in 1:length(my_data)) {
+  my_data[, i] <- as.factor(as.character(my_data[, i]))
 }
 
-data.all[,195]
+# look at histogram
+ggplot(my_data, aes(x=healthcare, y=economist)) + 
+  geom_bin2d() +
+  scale_x_discrete(labels=labels) +
+  scale_y_discrete(labels=labels) +
+  xlab("health") + ylab("economics") + 
+  ggtitle("2D histogram") +
+  theme_bw()
 
-library("PerformanceAnalytics")
-my_data <- data.all[,193:198]
-colnames(my_data) <- c("self", "government", "scientist", "healthcare", "economist", "familyfriends")
+ggplot(my_data, aes(x=scientist, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("How Well-informed")
 
-chart.Correlation(my_data, histogram=TRUE, pch=19)
+ggplot(my_data, aes(x=healthcare, y=national_gov)) + 
+  geom_bin2d() +
+  scale_x_discrete(labels=labels) +
+  scale_y_discrete(labels=labels) +  
+  xlab("health") + ylab("goverment") + 
+  ggtitle("2D histogram") +
+  theme_bw()
 
-data.all$Q975 <- as.numeric(as.character(data.all$Q975)) - 5
-data.all$Q975[data.all$Q975!=1] <- data.all$Q975[data.all$Q975!=1] - 6 
+ggplot(my_data, aes(x=self, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("How Well-informed")
+
+ggplot(my_data[!is.na(as.numeric(as.character(my_data$local_gov))),], 
+       aes(x=local_gov, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("How Well-informed")
+
+ggplot(my_data, aes(x=national_gov, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("How Well-informed")
+
+ggplot(my_data, aes(x=healthcare, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("How Well-informed")
+
+ggplot(my_data, aes(x=economist, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("How Well-informed")
+
+ggplot(my_data, aes(x=familyfriends, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("How Well-informed")
+
+```
+
+How well informed local government
+```{r}
+
+```
+
+
+how well informed and behavior
+```{r}
+sum(data.all$error.med<0.5)
+ggplot(data.all[data.all$error.med<0.5,], aes(x=ambig1_family_friend, y=ambig_corr.med)) + 
+  geom_point()
+
+data.all$ambig1_gov_national
 ```
 
 risk exposure block
