@@ -189,7 +189,17 @@ outcome.level <- as.factor(c(rep(0, nrow(data.all[mask,])), rep(1, nrow(data.all
 
 is.med <- as.factor(c(rep(0, nrow(data.all[mask,])*5), rep(1, nrow(data.all[mask,])*5)))
 
-rating <- c(data.all$RMon_1[mask], data.all$RMon_2[mask], data.all$RMon_3[mask], data.all$RMon_4[mask], data.all$RMon_5[mask], data.all$RMed_1[mask], data.all$RMed_2[mask], data.all$RMed_3[mask], data.all$RMed_4[mask], data.all$RMed_5[mask])
+rating <- c(as.numeric(as.character(data.all$RMon_1[mask])), 
+            as.numeric(as.character(data.all$RMon_2[mask])), 
+            as.numeric(as.character(data.all$RMon_3[mask])), 
+            as.numeric(as.character(data.all$RMon_4[mask])), 
+            as.numeric(as.character(data.all$RMon_5[mask])), 
+            as.numeric(as.character(data.all$RMed_1[mask])), 
+            as.numeric(as.character(data.all$RMed_2[mask])), 
+            as.numeric(as.character(data.all$RMed_3[mask])), 
+            as.numeric(as.character(data.all$RMed_4[mask])), 
+            as.numeric(as.character(data.all$RMed_5[mask]))
+)
 
 mTurkCode <- rep(data.all$mTurkCode[mask] ,10)
 
@@ -203,7 +213,14 @@ data2plot <- data_summary(outcome.rating[outcome.rating$is.med == 0,], "rating",
 ggplot(data2plot, aes(x=outcome.level, y=rating)) + 
   geom_bar(stat="identity", position=position_dodge()) +
   geom_errorbar(aes(ymin=rating-sd, ymax=rating+sd), width=0.2, position=position_dodge(0.9)) +
-  ggtitle("Rating of outcome")
+  ggtitle("Rating of outcome, Monetary")
+
+data2plot <- data_summary(outcome.rating[outcome.rating$is.med == 1,], "rating", "outcome.level")
+
+ggplot(data2plot, aes(x=outcome.level, y=rating)) + 
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=rating-sd, ymax=rating+sd), width=0.2, position=position_dodge(0.9)) +
+  ggtitle("Rating of outcome, Medical")
 ```
 
 
