@@ -61,7 +61,149 @@ load data
 setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
 load("data_all_444sub_rename.Rda")
 load("data_all_444sub_rename_header.Rda")
+load("data_all_444sub_attitude.Rda")
+
+# combine data
+data.all <- merge(data.all, data.attitude, by = "mTurkCode")
+data.all$age <- as.numeric(as.character(data.all$age)) + 17 # correct coding
+
 trial.param <- read.csv("trialsinfo_COVID_19.csv", header = TRUE, )
+```
+
+
+estimation of ambiguity
+```{r}
+data.all$AmbigE_posoutcome_38 <- as.numeric(as.character(data.all$AmbigE_posoutcome_38))
+data.all$AmbigE_posoutcome_25 <- as.numeric(as.character(data.all$AmbigE_posoutcome_25))
+data.all$AmbigE_posoutcome_13 <- as.numeric(as.character(data.all$AmbigE_posoutcome_13))
+data.all$AmbigE_posoutcome_na <- as.numeric(as.character(data.all$AmbigE_posoutcome_na))
+
+data.all$RMon_1 <- as.factor(as.character(data.all$RMon_1))
+data.all$RMon_2 <- as.factor(as.character(data.all$RMon_2))
+data.all$RMon_3 <- as.factor(as.character(data.all$RMon_3))
+data.all$RMon_4 <- as.factor(as.character(data.all$RMon_4))
+data.all$RMon_5 <- as.factor(as.character(data.all$RMon_5))
+
+data.all$RMedn_1 <- as.factor(as.character(data.all$RMed_1))
+data.all$RMedn_2 <- as.factor(as.character(data.all$RMed_2))
+data.all$RMedn_3 <- as.factor(as.character(data.all$RMed_3))
+data.all$RMedn_4 <- as.factor(as.character(data.all$RMed_4))
+data.all$RMedn_5 <- as.factor(as.character(data.all$RMed_5))
+
+```
+
+organize ambiguity estimation
+```{r}
+mask <- data.all$error.med < 0.5 & data.all$error.mon < 0.5
+
+sum(mask)
+
+ambig.level <- as.factor(c(rep(24, nrow(data.all[mask,])), rep(50, nrow(data.all[mask,])), rep(74, nrow(data.all[mask,])), rep(100, nrow(data.all[mask,]))))
+
+estimate <- c(data.all$AmbigE_posoutcome_38[mask], data.all$AmbigE_posoutcome_25[mask], data.all$AmbigE_posoutcome_13[mask], data.all$AmbigE_posoutcome_na[mask])
+
+mTurkCode <- as.factor(rep(data.all$mTurkCode[mask] ,4))
+
+age <- rep(data.all$age[mask] ,4)
+
+ambig.estimate <- data.frame(ambig.level, estimate, age, mTurkCode)
+```
+
+```{r}
+ambig.estimate$is.young <- 1
+ambig.estimate$is.young[ambig.estimate$age>60] <- 0
+ambig.estimate$is.young <- as.factor(ambig.estimate$is.young)
+
+sum(ambig.estimate$is.young == 0)/4
+sum(ambig.estimate$is.young == 1)/4
+
+length(unique(ambig.estimate$mTurkCode))
+length(ambig.estimate$mTurkCode)
+```
+
+
+plot ambiguity estimation
+```{r}
+data2plot <- data_summary(ambig.estimate, "estimate", "ambig.level")
+
+ggplot(data2plot, aes(x=ambig.level, y=estimate)) + 
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=estimate-sd, ymax=estimate+sd), width=0.2, position=position_dodge(0.9)) +
+  ggtitle("Estimation of outcome probability")
+
+ggplot(ambig.estimate, aes(x=ambig.level, y=estimate)) + 
+  geom_violin(trim=TRUE) +
+  # geom_boxplot(width=0.05) +
+  # geom_dotplot(binaxis='y', stackdir='center', dotsize=0.5) +
+  # geom_jitter(shape=16, position=position_jitter(0.2)) +
+  ggtitle("Estimation of outcome probability")
+
+data2plot <- data_summary(ambig.estimate, "estimate", c("ambig.level", "is.young"))
+
+ggplot(data2plot, aes(x=ambig.level, y=estimate, color=is.young, fill = is.young)) + 
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=estimate-sd, ymax=estimate+sd), width=0.2, position=position_dodge(0.9)) +
+  ggtitle("Estimation of outcome probability separating age")
+
+ggplot(ambig.estimate, aes(x=ambig.level, y=estimate, color=is.young, fill=is.young)) + 
+  geom_violin(trim=TRUE) +
+  # geom_boxplot(width=0.05) +
+  # geom_dotplot(binaxis='y', stackdir='center', dotsize=0.5) +
+  # geom_jitter(shape=16, position=position_jitter(0.2)) +
+  ggtitle("Estimation of outcome probability separating age")
+```
+
+Look at age difference by anova
+```{r}
+library(ez)
+
+anova_result <- ezANOVA(
+    ambig.estimate[!is.na(ambig.estimate$estimate), ],
+    dv = estimate,
+    wid = mTurkCode,
+    within = ambig.level,
+    between = is.young,
+    type = 3,
+    return_aov = TRUE
+)
+
+anova_result
+
+# linear mode
+library(lme4)
+
+lmer(estimate ~ age + 1|mTurkCode,
+     data=ambig.estimate,
+     na.action = na.omit
+     )
+```
+
+
+organize outcome rating
+```{r}
+mask <- data.all$error.med < 0.5 & data.all$error.mon < 0.5
+
+sum(mask)
+
+outcome.level <- as.factor(c(rep(0, nrow(data.all[mask,])), rep(1, nrow(data.all[mask,])), rep(2, nrow(data.all[mask,])), rep(3, nrow(data.all[mask,])), rep(4, nrow(data.all[mask,])), rep(0, nrow(data.all[mask,])), rep(1, nrow(data.all[mask,])), rep(2, nrow(data.all[mask,])), rep(3, nrow(data.all[mask,])), rep(4, nrow(data.all[mask,]))))
+
+is.med <- as.factor(c(rep(0, nrow(data.all[mask,])*5), rep(1, nrow(data.all[mask,])*5)))
+
+rating <- c(data.all$RMon_1[mask], data.all$RMon_2[mask], data.all$RMon_3[mask], data.all$RMon_4[mask], data.all$RMon_5[mask], data.all$RMed_1[mask], data.all$RMed_2[mask], data.all$RMed_3[mask], data.all$RMed_4[mask], data.all$RMed_5[mask])
+
+mTurkCode <- rep(data.all$mTurkCode[mask] ,10)
+
+outcome.rating <- data.frame(is.med, outcome.level, rating, mTurkCode)
+```
+
+plot rating
+```{r}
+data2plot <- data_summary(outcome.rating[outcome.rating$is.med == 0,], "rating", "outcome.level")
+
+ggplot(data2plot, aes(x=outcome.level, y=rating)) + 
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=rating-sd, ymax=rating+sd), width=0.2, position=position_dodge(0.9)) +
+  ggtitle("Rating of outcome")
 ```
 
 
@@ -218,12 +360,55 @@ individual subject choice data model free attitude
 ```{r}
 # id_idx = 1
 ids <- data.task$mTurkCode
+
 risk.mon <- rep(0,length(ids))
 ambig_corr.mon <- rep(0,length(ids))
 risk.med <- rep(0,length(ids))
 ambig_corr.med <- rep(0,length(ids))
+
 error.mon <- rep(0,length(ids))
 error.med <- rep(0,length(ids))
+
+# ismed <- array(numeric())
+# choice_uncert <- array(numeric())
+# choice_outcome <- array(numeric())
+# prob <- array(numeric())
+# ambig <- array(numeric())
+# val <- array(numeric())
+
+risk25.mon <- rep(0,length(ids))
+risk50.mon <- rep(0,length(ids))
+risk75.mon <- rep(0,length(ids))
+ambig24.mon <- rep(0,length(ids))
+ambig50.mon <- rep(0,length(ids))
+ambig74.mon <- rep(0,length(ids))
+ambig100.mon <- rep(0,length(ids))
+
+risk25.med <- rep(0,length(ids))
+risk50.med <- rep(0,length(ids))
+risk75.med <- rep(0,length(ids))
+ambig24.med <- rep(0,length(ids))
+ambig50.med <- rep(0,length(ids))
+ambig74.med <- rep(0,length(ids))
+ambig100.med <- rep(0,length(ids))
+
+level1.risk.mon <- rep(0,length(ids))
+level2.risk.mon <- rep(0,length(ids))
+level3.risk.mon <- rep(0,length(ids))
+level4.risk.mon <- rep(0,length(ids))
+level1.ambig.mon <- rep(0,length(ids))
+level2.ambig.mon <- rep(0,length(ids))
+level3.ambig.mon <- rep(0,length(ids))
+level4.ambig.mon <- rep(0,length(ids))
+
+level1.risk.med <- rep(0,length(ids))
+level2.risk.med <- rep(0,length(ids))
+level3.risk.med <- rep(0,length(ids))
+level4.risk.med <- rep(0,length(ids))
+level1.ambig.med <- rep(0,length(ids))
+level2.ambig.med <- rep(0,length(ids))
+level3.ambig.med <- rep(0,length(ids))
+level4.ambig.med <- rep(0,length(ids))
 
 idx = 0
 
@@ -235,9 +420,73 @@ for (id in ids) {
   sub.med <- data.choice.med[data.choice.med$id == id,]
   sub.mon$val <- as.factor(sub.mon$val)
   
+  # stochastic dominance error
   error.mon[idx] = mean(sub.mon$choice[sub.mon$val==5])
   error.med[idx] = mean(sub.med$choice[sub.med$val=="Slight"])
   
+  # choice by uncertainty level
+  # summary_risk_mon = data_summary(sub.mon[sub.mon$val!=5 & sub.mon$ambig==0,], "choice", "prob")
+  # summary_ambig_mon = data_summary(sub.mon[sub.mon$val!=5 & sub.mon$ambig!=0,], "choice", "ambig")
+  # summary_risk_med = data_summary(sub.med[sub.med$val!="Slight" & sub.med$ambig==0,], "choice", "prob")
+  # summary_ambig_med = data_summary(sub.med[sub.med$val!="Slight" & sub.med$ambig!=0,], "choice", "ambig")
+  # 
+  # ismed <- append(ismed, c(summary_risk_mon))
+  # prob <- append(prob, c())
+  
+  risk25.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0 & sub.mon$prob==0.25])
+  risk50.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0 & sub.mon$prob==0.5])
+  risk75.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0 & sub.mon$prob==0.75])
+
+  risk25.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0 & sub.med$prob==0.25])
+  risk50.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0 & sub.med$prob==0.5])
+  risk75.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0 & sub.med$prob==0.75])
+
+  ambig24.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0.24]) -
+    mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0 & sub.mon$prob==0.5])
+  ambig50.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0.50]) -
+    mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0 & sub.mon$prob==0.5])
+  ambig74.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0.75]) -
+    mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0 & sub.mon$prob==0.5])
+  ambig100.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==1]) -
+    mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0 & sub.mon$prob==0.5])
+
+  ambig24.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0.24]) -
+    mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0 & sub.med$prob==0.5])
+  ambig50.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0.50]) -
+    mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0 & sub.med$prob==0.5])
+  ambig74.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0.75]) -
+    mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0 & sub.med$prob==0.5])
+  ambig100.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==1]) -
+    mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0 & sub.med$prob==0.5])
+  
+  # choice by outcome level
+  # summary_val_risk_mon = data_summary(sub.mon[sub.mon$ambig==0,], "choice", "val")
+  # summary_val_ambig_mon = data_summary(sub.mon[sub.mon$ambig!=0,], "choice", "val")
+  # summary_val_risk_med = data_summary(sub.med[sub.med$ambig==0,], "choice", "val")
+  # summary_val_ambig_med = data_summary(sub.med[sub.med$ambig!=0,], "choice", "val")
+  
+  
+  level1.risk.mon[idx] = mean(sub.mon$choice[sub.mon$val==5 & sub.mon$ambig==0])
+  level2.risk.mon[idx] = mean(sub.mon$choice[sub.mon$val==8 & sub.mon$ambig==0])
+  level3.risk.mon[idx] = mean(sub.mon$choice[sub.mon$val==12 & sub.mon$ambig==0])
+  level4.risk.mon[idx] = mean(sub.mon$choice[sub.mon$val==25 & sub.mon$ambig==0])
+
+  level1.ambig.mon[idx] = mean(sub.mon$choice[sub.mon$val==5 & sub.mon$ambig!=0])
+  level2.ambig.mon[idx] = mean(sub.mon$choice[sub.mon$val==8 & sub.mon$ambig!=0])
+  level3.ambig.mon[idx] = mean(sub.mon$choice[sub.mon$val==12 & sub.mon$ambig!=0])
+  level4.ambig.mon[idx] = mean(sub.mon$choice[sub.mon$val==25 & sub.mon$ambig!=0])
+
+  level1.risk.med[idx] = mean(sub.med$choice[sub.med$val=="Slight" & sub.med$ambig==0])
+  level2.risk.med[idx] = mean(sub.med$choice[sub.med$val=="Moderate" & sub.med$ambig==0])
+  level3.risk.med[idx] = mean(sub.med$choice[sub.med$val=="Major" & sub.med$ambig==0])
+  level4.risk.med[idx] = mean(sub.med$choice[sub.med$val=="Recovery" & sub.med$ambig==0])
+
+  level1.ambig.med[idx] = mean(sub.med$choice[sub.med$val=="Slight" & sub.med$ambig!=0])
+  level2.ambig.med[idx] = mean(sub.med$choice[sub.med$val=="Moderate" & sub.med$ambig!=0])
+  level3.ambig.med[idx] = mean(sub.med$choice[sub.med$val=="Major" & sub.med$ambig!=0])
+  level4.ambig.med[idx] = mean(sub.med$choice[sub.med$val=="Recovery" & sub.med$ambig!=0])
+
+  # model-free attitude
   risk.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0])
   ambig_corr.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig!=0])-
     mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0 & sub.mon$prob==0.5])
@@ -250,6 +499,14 @@ for (id in ids) {
 
 data.attitude <- data.frame(mTurkCode = ids,
                             risk.mon, ambig_corr.mon, risk.med, ambig_corr.med,
+                            risk25.mon, risk50.mon, risk75.mon,
+                            ambig24.mon, ambig50.mon, ambig74.mon, ambig100.mon,
+                            risk25.med, risk50.med, risk75.med,
+                            ambig24.med, ambig50.med, ambig74.med, ambig100.med,
+                            level1.risk.mon, level2.risk.mon, level3.risk.mon, level4.risk.mon,
+                            level1.ambig.mon, level2.ambig.mon, level3.ambig.mon, level4.ambig.mon,
+                            level1.risk.med, level2.risk.med, level3.risk.med, level4.risk.med,
+                            level1.ambig.med, level2.ambig.med, level3.ambig.med, level4.ambig.med,
                             error.mon, error.med)
 
 ```
@@ -259,6 +516,81 @@ save model free attitude
 setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
 save(data.attitude, file="data_all_444sub_attitude.Rda")
 ```
+
+plot average of choice by uncertainty level
+```{r}
+
+# monetary risk
+data2plot <- data.frame(
+   prob.level = as.factor(c(0.25, 0.5, 0.75)),
+   choice.mean = c(mean(data.attitude$risk25.mon[data.attitude$error.mon<0.5]),
+                       mean(data.attitude$risk50.mon[data.attitude$error.mon<0.5]),
+                       mean(data.attitude$risk75.mon[data.attitude$error.mon<0.5])),
+   choice.se = c(sd(data.attitude$risk25.mon[data.attitude$error.mon<0.5])/sqrt(length(data.attitude$risk25.mon[data.attitude$error.mon<0.5])),
+                  sd(data.attitude$risk50.mon[data.attitude$error.mon<0.5])/sqrt(length(data.attitude$risk50.mon[data.attitude$error.mon<0.5])),
+                  sd(data.attitude$risk75.mon[data.attitude$error.mon<0.5])/sqrt(length(data.attitude$risk75.mon[data.attitude$error.mon<0.5])))
+)
+
+ggplot(data2plot, aes(x = prob.level, y = choice.mean)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice.mean-choice.se, ymax=choice.mean+choice.se), width=0.2, position=position_dodge(0.9)) +
+  ggtitle("Monetary Risky Trials")
+
+# medical risk
+data2plot <- data.frame(
+   prob.level = as.factor(c(0.25, 0.5, 0.75)),
+   choice.mean = c(mean(data.attitude$risk25.med[data.attitude$error.med<0.5]),
+                       mean(data.attitude$risk50.med[data.attitude$error.med<0.5]),
+                       mean(data.attitude$risk75.med[data.attitude$error.med<0.5])),
+   choice.se = c(sd(data.attitude$risk25.med[data.attitude$error.med<0.5])/sqrt(length(data.attitude$risk25.med[data.attitude$error.med<0.5])),
+                  sd(data.attitude$risk50.med[data.attitude$error.med<0.5])/sqrt(length(data.attitude$risk50.med[data.attitude$error.med<0.5])),
+                  sd(data.attitude$risk75.med[data.attitude$error.med<0.5])/sqrt(length(data.attitude$risk75.med[data.attitude$error.med<0.5])))
+)
+
+ggplot(data2plot, aes(x = prob.level, y = choice.mean)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice.mean-choice.se, ymax=choice.mean+choice.se), width=0.2, position=position_dodge(0.9)) +
+  ggtitle("Medical Risky Trials")
+
+# monetary ambiguity
+data2plot <- data.frame(
+   ambig.level = as.factor(c(0.24, 0.50, 0.74, 1)),
+   choice.mean = c(mean(data.attitude$ambig24.mon[data.attitude$error.mon<0.5]),
+                    mean(data.attitude$ambig50.mon[data.attitude$error.mon<0.5]),
+                    mean(data.attitude$ambig74.mon[data.attitude$error.mon<0.5]),
+                    mean(data.attitude$ambig100.mon[data.attitude$error.mon<0.5])),
+   choice.se = c(sd(data.attitude$ambig24.mon[data.attitude$error.mon<0.5])/sqrt(length(data.attitude$ambig24.mon[data.attitude$error.mon<0.5])),
+                  sd(data.attitude$ambig50.mon[data.attitude$error.mon<0.5])/sqrt(length(data.attitude$ambig50.mon[data.attitude$error.mon<0.5])),
+                  sd(data.attitude$ambig74.mon[data.attitude$error.mon<0.5])/sqrt(length(data.attitude$ambig74.mon[data.attitude$error.mon<0.5])),
+                  sd(data.attitude$ambig100.mon[data.attitude$error.mon<0.5])/sqrt(length(data.attitude$ambig100.mon[data.attitude$error.mon<0.5])))
+)
+
+ggplot(data2plot, aes(x = ambig.level, y = choice.mean)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice.mean-choice.se, ymax=choice.mean+choice.se), width=0.2, position=position_dodge(0.9)) +
+  ggtitle("Monetary Ambiguous Trials, risk50 corrected")
+
+# Medical ambiguity
+data2plot <- data.frame(
+   ambig.level = as.factor(c(0.24, 0.50, 0.74, 1)),
+   choice.mean = c(mean(data.attitude$ambig24.med[data.attitude$error.med<0.5]),
+                    mean(data.attitude$ambig50.med[data.attitude$error.med<0.5]),
+                    mean(data.attitude$ambig74.med[data.attitude$error.med<0.5]),
+                    mean(data.attitude$ambig100.med[data.attitude$error.med<0.5])),
+   choice.se = c(sd(data.attitude$ambig24.med[data.attitude$error.med<0.5])/sqrt(length(data.attitude$ambig24.med[data.attitude$error.med<0.5])),
+                  sd(data.attitude$ambig50.med[data.attitude$error.med<0.5])/sqrt(length(data.attitude$ambig50.med[data.attitude$error.med<0.5])),
+                  sd(data.attitude$ambig74.med[data.attitude$error.med<0.5])/sqrt(length(data.attitude$ambig74.med[data.attitude$error.med<0.5])),
+                  sd(data.attitude$ambig100.med[data.attitude$error.med<0.5])/sqrt(length(data.attitude$ambig100.med[data.attitude$error.med<0.5])))
+)
+
+ggplot(data2plot, aes(x = ambig.level, y = choice.mean)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice.mean-choice.se, ymax=choice.mean+choice.se), width=0.2, position=position_dodge(0.9)) +
+  ggtitle("Medical Ambiguous Trials, risk50 corrected")
+
+
+```
+
 
 
 plot individual subject choice data
