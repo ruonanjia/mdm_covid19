@@ -189,23 +189,28 @@ ggplot(data.all, aes(x=ambig2_health_impact, y=ambig2_economics)) +
 
 Health and economics impact, correlation with uncertainty attitude
 ```{r}
+x_labels = c("Extremely", "A lot", "Somewhat", "Uncertain", "Not much", "Not a lot", "Not at all")
 
-data.all$ambig2_health_impact
+# data.all$ambig2_health_impact
 sum(data.all$error.med<0.5)
 ggplot(data.all[data.all$error.med<0.5,], aes(x=ambig2_health_impact, y=ambig_corr.med)) + 
-  geom_point() +
+  geom_violin() +
+  scale_x_discrete(labels=x_labels) +
   xlab("Considering health impact") + ylab("model-free ambig medical")
 
 ggplot(data.all[data.all$error.mon<0.5,], aes(x=ambig2_health_impact, y=ambig_corr.mon)) + 
-  geom_point() +
+  geom_violin() +
+  scale_x_discrete(labels=x_labels) +
   xlab("Considering health impact") + ylab("model-free ambig monetary")
 
 ggplot(data.all[data.all$error.med<0.5,], aes(x=ambig2_economics, y=ambig_corr.med)) + 
-  geom_point() +
+  geom_violin() +
+  scale_x_discrete(labels=x_labels) +
   xlab("Considering econ impact") + ylab("model-free ambig medical")
 
 ggplot(data.all[data.all$error.mon<0.5,], aes(x=ambig2_economics, y=ambig_corr.mon)) + 
-  geom_point() +
+  geom_violin() +
+  scale_x_discrete(labels=x_labels) +
   xlab("Considering econ impact") + ylab("model-free ambig monetary")
 ```
 
@@ -320,20 +325,61 @@ ggplot(my_data, aes(x=familyfriends, fill = is.young)) +
 
 ```
 
-How well informed local government
+How much reaction
 ```{r}
+colnames(data.all)[207:212]
+react <- data.all[, c(207:212, 391)]
+
+colnames(react) <- c("national","state","scientist","healthcare","economist","self","is.young")
+
+labels <- c("Completely overreacting", "Somewhat overreacting","Appropriate","Somewhat insufficient", "Completely insufficient")
+
+ggplot(react, aes(x=national, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  rotate_x_text(30) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("Reaction to pandemic")
+
+ggplot(react, aes(x=state, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  rotate_x_text(30) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("Reaction to pandemic")
+
+ggplot(react, aes(x=scientist, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels)  +
+  rotate_x_text(30) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("Reaction to pandemic")
+
+ggplot(react, aes(x=healthcare, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  rotate_x_text(30) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("Reaction to pandemic")
+
+ggplot(react, aes(x=economist, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  rotate_x_text(30) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("Reaction to pandemic")
+
+ggplot(react, aes(x=self, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  rotate_x_text(30) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("Reaction to pandemic")
 
 ```
 
 
-how well informed and behavior
-```{r}
-sum(data.all$error.med<0.5)
-ggplot(data.all[data.all$error.med<0.5,], aes(x=ambig1_family_friend, y=ambig_corr.med)) + 
-  geom_point()
 
-data.all$ambig1_gov_national
-```
 
 risk exposure block
 ```{r}
