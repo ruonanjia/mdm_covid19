@@ -77,10 +77,11 @@ colnames(data.all)
 
 demographic block
 ```{r}
-colnames(data.all)[c(155:164,166:171, 353)]
+colnames(data.all)
+colnames(data.all)[c(155:164,166:171, 1)]
 t(header[1, c(155:164,166:171, 353)])
 
-data.demo <- data.all[,c(155:164,166:171, 353)]
+data.demo <- data.all[,c(155:164,166:171, 1)]
 
 View(data.demo)
 colnames(data.demo)
@@ -341,7 +342,7 @@ ggplot(react, aes(x=national, fill = is.young)) +
   scale_fill_discrete(labels=c("Older", "Younger"), name="") +
   ggtitle("Reaction to pandemic")
 
-ggplot(react, aes(x=state, fill = is.young)) +
+ggplot(react[!is.na(as.numeric(as.character(react$state))),], aes(x=state, fill = is.young)) +
   geom_histogram(stat="count", position="stack") +
   scale_x_discrete(labels=labels) +
   rotate_x_text(30) +
@@ -378,7 +379,426 @@ ggplot(react, aes(x=self, fill = is.young)) +
 
 ```
 
+reaction and attitude
+```{r}
+ggplot(data.all[data.all$error.med<0.5,], aes(x=ambig1_react_nation, y=ambig_corr.med)) + 
+  geom_violin() +
+  geom_jitter(shape=16, position=position_jitter(0.2),size=0.8, alpha = 0.3,color="red") +
+  geom_boxplot(width=0.1) +
+  # geom_dotplot(binaxis='y', stackdir='center', dotsize=0.3) +
+  xlab("National government reaction") +
+  scale_x_discrete(labels=labels) +
+  ylab("Model-free Ambig Medical") +
+  # theme_classic() +
+  rotate_x_text(20)
 
+
+ggplot(data.all[data.all$error.mon<0.5,], aes(x=ambig1_react_nation, y=ambig_corr.mon)) + 
+  geom_violin() +
+  geom_jitter(shape=16, position=position_jitter(0.2),size=0.8, alpha=0.3,color="red") +
+  geom_boxplot(width=0.1) +
+  # geom_dotplot(binaxis='y', stackdir='center', dotsize=0.3) +
+  xlab("National government reaction") +
+  scale_x_discrete(labels=labels) +
+  ylab("Model-free Ambig Monetary") +
+  # theme_classic() +
+  rotate_x_text(20)
+
+ggplot(data.all[data.all$error.med<0.5,], aes(x=ambig1_react_nation, y=risk.med)) + 
+  geom_violin() +
+  geom_jitter(shape=16, position=position_jitter(0.2),size=0.8, alpha = 0.3,color="red") +
+  geom_boxplot(width=0.1) +
+  # geom_dotplot(binaxis='y', stackdir='center', dotsize=0.3) +
+  xlab("National government reaction") +
+  scale_x_discrete(labels=labels) +
+  ylab("Model-free Risk Medical") +
+  # theme_classic() +
+  rotate_x_text(20)
+
+
+ggplot(data.all[data.all$error.mon<0.5,], aes(x=ambig1_react_nation, y=risk.mon)) + 
+  geom_violin() +
+  geom_jitter(shape=16, position=position_jitter(0.2),size=0.8, alpha=0.3,color="red") +
+  geom_boxplot(width=0.1) +
+  # geom_dotplot(binaxis='y', stackdir='center', dotsize=0.3) +
+  xlab("National government reaction") +
+  scale_x_discrete(labels=labels) +
+  ylab("Model-free Risk Monetary") +
+  # theme_classic() +
+  rotate_x_text(20)
+```
+
+Should consider health impact by state
+```{r}
+# clean zipcode
+data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
+data(zipcode)
+data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
+
+data.all$ambig2_health_impact <- as.numeric(as.character(data.all$ambig2_health_impact))
+
+# location of county by zipcode
+data.zipcode<-aggregate(
+  data.frame(health_impact=data.all$ambig2_health_impact),list(zip=data.all$zipcode),
+  mean,
+  na.action=na.omit)
+
+geo<- merge(data.zipcode, zipcode, by='zip')
+
+# location of state by zipcodes
+state_all <- unique(geo$state)
+geo_state <- data.frame(state = state_all)
+
+state_match <- match(geo$state, state_all)
+for (idx in 1:length(state_all)) {
+  geo_state$health_impact[idx] <- mean(geo$health_impact[geo$state==state_all[idx]],na.rm=TRUE)
+}
+
+# map the state data to us map
+# geo_state_map <- map_with_data(geo_state, values="count", na=0)
+
+# plot
+plot_usmap(data=geo_state, regions="states",values="health_impact") +
+  scale_fill_gradient(limits=c(1,5)) +
+  ggtitle("Should consider health impact") +
+  labs(fill = "Extremely(1) ~ Not at all(7)") +
+  theme(legend.position = "right")
+
+```
+
+Should consider economic impact by state
+```{r}
+# clean zipcode
+data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
+data(zipcode)
+data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
+
+data.all$ambig2_economics <- as.numeric(as.character(data.all$ambig2_economics))
+
+# location of county by zipcode
+data.zipcode<-aggregate(
+  data.frame(economic_impact=data.all$ambig2_economics),list(zip=data.all$zipcode),
+  mean,
+  na.action=na.omit)
+
+geo<- merge(data.zipcode, zipcode, by='zip')
+
+# location of state by zipcodes
+state_all <- unique(geo$state)
+geo_state <- data.frame(state = state_all)
+View(geo_state)
+
+state_match <- match(geo$state, state_all)
+for (idx in 1:length(state_all)) {
+  geo_state$economic_impact[idx] <- mean(geo$economic_impact[geo$state==state_all[idx]],na.rm=TRUE)
+}
+
+# plot
+plot_usmap(data=geo_state, regions="states",values="economic_impact") +
+  scale_fill_gradient(limits=c(1,5)) +
+  ggtitle("Should consider economic impact") +
+  labs(fill = "Extremely(1) ~ Not at all(7)") +
+  theme(legend.position = "right")
+
+```
+
+Health - economic impact
+```{r}
+# clean zipcode
+data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
+data(zipcode)
+data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
+
+data.all$ambig2_economics <- as.numeric(as.character(data.all$ambig2_economics))
+data.all$ambig2_health_impact <- as.numeric(as.character(data.all$ambig2_health_impact))
+
+# location of county by zipcode
+data.zipcode<-aggregate(
+  data.frame(health_economic=data.all$ambig2_health_impact-data.all$ambig2_economics),list(zip=data.all$zipcode),
+  mean,
+  na.action=na.omit)
+
+geo<- merge(data.zipcode, zipcode, by='zip')
+
+# location of state by zipcodes
+state_all <- unique(geo$state)
+geo_state <- data.frame(state = state_all)
+View(geo_state)
+
+state_match <- match(geo$state, state_all)
+for (idx in 1:length(state_all)) {
+  geo_state$health_economic[idx] <- mean(geo$health_economic[geo$state==state_all[idx]],na.rm=TRUE)
+}
+
+# plot
+plot_usmap(data=geo_state, regions="states",values="health_economic") +
+  scale_fill_gradient2(midpoint=0) +
+  ggtitle("Should consider impact: heath-economics contrast") +
+  labs(fill = "Health(-) ~ Economic(+)") +
+  theme(legend.position = "right")
+
+```
+
+How well-informed is the local government
+```{r}
+
+# clean zipcode
+data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
+data(zipcode)
+data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
+
+data.all$ambig1_gov_local <- as.numeric(as.character(data.all$ambig1_gov_local))
+
+# location of county by zipcode
+data.zipcode<-aggregate(
+  data.frame(informed=data.all$ambig1_gov_local),list(zip=data.all$zipcode),
+  mean,
+  na.action=na.omit)
+
+geo<- merge(data.zipcode, zipcode, by='zip')
+# View(data.zipcode)
+# View(geo)
+
+# location of state by zipcodes
+state_all <- unique(geo$state)
+geo_state <- data.frame(state = state_all)
+
+state_match <- match(geo$state, state_all)
+for (idx in 1:length(state_all)) {
+  geo_state$informed[idx] <- mean(geo$informed[geo$state==state_all[idx]],na.rm=TRUE)
+}
+
+# map the state data to us map
+# geo_state_map <- map_with_data(geo_state, values="count", na=0)
+
+# plot
+plot_usmap(data=geo_state, regions="states",values="informed") +
+  ggtitle("How well-informed is the local government") +
+  labs(fill = "Very(1) ~ Very not(7)") +
+  theme(legend.position = "right")
+```
+
+
+How appropriate is the local government reaction by state
+```{r}
+# clean zipcode
+data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
+data(zipcode)
+data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
+
+data.all$ambig1_react_state <- as.numeric(as.character(data.all$ambig1_react_state))
+
+# location of county by zipcode
+data.zipcode<-aggregate(
+  data.frame(react=data.all$ambig1_react_state),list(zip=data.all$zipcode),
+  mean,
+  na.action=na.omit)
+
+geo<- merge(data.zipcode, zipcode, by='zip')
+# View(data.zipcode)
+# View(geo)
+
+# location of state by zipcodes
+state_all <- unique(geo$state)
+geo_state <- data.frame(state = state_all)
+
+state_match <- match(geo$state, state_all)
+for (idx in 1:length(state_all)) {
+  geo_state$react[idx] <- mean(geo$react[geo$state==state_all[idx]],na.rm=TRUE)
+}
+
+# map the state data to us map
+# geo_state_map <- map_with_data(geo_state, values="count", na=0)
+
+# plot
+plot_usmap(data=geo_state, regions="states",values="react") +
+  ggtitle("How appropriate is the state government's reaction") +
+  labs(fill = "Overreacting(1) ~ Insufficient(7)") +
+  theme(legend.position = "right")
+
+```
+
+Anxiety level by state
+```{r}
+# clean zipcode
+data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
+data(zipcode)
+data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
+
+data.all$anx_feelingnow <- as.numeric(as.character(data.all$anx_feelingnow))
+
+# location of county by zipcode
+data.zipcode<-aggregate(
+  data.frame(anx=data.all$anx_feelingnow),list(zip=data.all$zipcode),
+  mean,
+  na.action=na.omit)
+
+geo<- merge(data.zipcode, zipcode, by='zip')
+# View(data.zipcode)
+# View(geo)
+
+# location of state by zipcodes
+state_all <- unique(geo$state)
+geo_state <- data.frame(state = state_all)
+
+state_match <- match(geo$state, state_all)
+for (idx in 1:length(state_all)) {
+  geo_state$anx[idx] <- mean(geo$anx[geo$state==state_all[idx]],na.rm=TRUE)
+}
+
+# map the state data to us map
+# geo_state_map <- map_with_data(geo_state, values="count", na=0)
+
+# plot
+plot_usmap(data=geo_state, regions="states",values="anx") +
+  ggtitle("How anxious are you feeling now") +
+  labs(fill = "Not at all(1) ~ Extremely(7)") +
+  theme(legend.position = "right")
+
+```
+
+Count of participants by state
+```{r}
+# clean zipcode
+data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
+data(zipcode)
+data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
+
+# location of county by zipcode
+data.zipcode<-aggregate(data.frame(count=data.all$mTurkCode),list(zip=data.all$zipcode),length)
+geo<- merge(data.zipcode, zipcode, by='zip')
+# View(data.zipcode)
+# View(geo)
+
+# location of state by zipcodes
+state_all <- unique(geo$state)
+geo_state <- data.frame(state = state_all)
+
+state_match <- match(geo$state, state_all)
+for (idx in 1:length(state_all)) {
+  geo_state$count[idx] <- sum(geo$count[geo$state==state_all[idx]])
+}
+
+# map the state data to us map
+# geo_state_map <- map_with_data(geo_state, values="count", na=0)
+
+# plot
+plot_usmap(data=geo_state, regions="states",values="count") +
+  ggtitle("Count of participants") +
+  labs(fill = "Count") +
+  theme(legend.position = "right")
+```
+
+```{r}
+#  library(maps)
+us_map<-map_data('state')
+
+library(sf)
+us_states <- st_as_sf(map("state", plot = FALSE, fill = TRUE))
+
+# state abbreviation to full name
+data("state.fips")
+state.name <- state.fips[,-1:-4]
+state.name$polyname[c(21,23,35,39,55,60)] <- c("massachusetts", "michigan","new york","north carolina","virginia","washington")
+state.name <- state.name[c(-20,-22,-24,-34,-36,-37,-38,-40,-53,-54,-56:-59),]
+state.name[nrow(state.name)+1,] <- c("HI", "hawaii")
+
+
+geo$state_full <- as.factor(state.name$polyname[match(geo$state, state.name$abb)])
+
+us_states$count <- sum(geo$count[match(geo$state_full == us_states$ID)])
+
+ggplot(us_states) +
+  geom_sf(aes(fill = as.factor(count))) +
+  # geom_text(aes(long, lat, label = count), color = "white") +
+  # geom_point(aes(color = count),size=0.8,alpha=0.4) + 
+  # scale_colour_gradient(high="dark blue", low="light blue") +
+  # scale_color_continuous(breaks = c(1,2), labels = c(1,2)) +
+  theme(panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.background = element_blank()) +
+  xlim(-125,-65)+ylim(20,50)
+  
+
+```
+
+Anxiety, distribution
+```{r}
+colnames(data.all)[309:317]
+
+labels <- c("Not at all", "A little", "Somewhat", "A fair amount", "Much", "Very much", "Extremely")
+
+ggplot(data.all, aes(x=anx_feelingnow, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  # rotate_x_text(30) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  xlab("Anxiety level now") +
+  ggtitle("Anxiety now")
+
+ggplot(data.all, aes(x=anx_TVnewspaper, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  # scale_x_discrete(labels=labels) +
+  # rotate_x_text(30) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("Anxiety TV Newspaper")
+
+ggplot(data.all, aes(x=anx_socialmedia, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  # scale_x_discrete(labels=labels) +
+  # rotate_x_text(30) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("Anxiety social media")
+```
+
+
+Anxiety, violin plot
+```{r}
+labels <- c("Not at all", "A little", "Somewhat", "A fair amount", "Much", "Very much", "Extremely")
+
+ggplot(data.all[data.all$error.med<0.5,], aes(x=anx_feelingnow, y=ambig_corr.med)) + 
+  geom_point() +
+  ylab("model-free ambig Medical")
+
+ggplot(data.all[data.all$error.med<0.5,], aes(x=anx_feelingnow, y=ambig_corr.med)) + 
+  geom_violin() +
+  # geom_dotplot(binaxis='y', stackdir='center', dotsize=0.3) +
+  xlab("Anxiety level now") +
+  scale_x_discrete(labels=labels) +
+  geom_jitter(shape=16, position=position_jitter(0.2),size=1,alpha=0.3,color="red") +
+  geom_boxplot(width=0.1) +
+  ylab("model-free ambig Medical")
+
+ggplot(data.all[data.all$error.mon<0.5,], aes(x=anx_feelingnow, y=ambig_corr.mon)) + 
+  geom_violin() +
+  # geom_dotplot(binaxis='y', stackdir='center', dotsize=0.3) +
+  xlab("Anxiety level now") +
+  scale_x_discrete(labels=labels) +
+  geom_jitter(shape=16, position=position_jitter(0.2),size=1,alpha=0.3,color="red") +
+  geom_boxplot(width=0.1) +
+  ylab("model-free ambig Monetary")
+
+ggplot(data.all[data.all$error.med<0.5,], aes(x=anx_feelingnow, y=risk.med)) + 
+  geom_violin() +
+  # geom_dotplot(binaxis='y', stackdir='center', dotsize=0.3) +
+  xlab("Anxiety level now") +
+  scale_x_discrete(labels=labels) +
+  geom_jitter(shape=16, position=position_jitter(0.2),size=1,alpha=0.3,color="red") +
+  geom_boxplot(width=0.1) +
+  ylab("model-free risk Medical")
+
+ggplot(data.all[data.all$error.mon<0.5,], aes(x=anx_feelingnow, y=risk.mon)) + 
+  geom_violin() +
+  # geom_dotplot(binaxis='y', stackdir='center', dotsize=0.3) +
+  xlab("Anxiety level now") +
+  scale_x_discrete(labels=labels) +
+  geom_jitter(shape=16, position=position_jitter(0.2),size=1,alpha=0.3,color="red") +
+  geom_boxplot(width=0.1) +
+  ylab("model-free risk Monetary")
+```
 
 
 risk exposure block
