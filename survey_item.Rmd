@@ -3,6 +3,8 @@ title: "R Notebook"
 output: html_notebook
 author: ruonanjia
 ---
+
+Install packages
 ```{r}
 # Download package tarball from CRAN archive
 
@@ -28,7 +30,9 @@ library(ggplot2)
 library(zipcode) # install only available through archive
 library(maps)
 library(ggpubr)
-library("PerformanceAnalytics")
+library("PerformanceAnalytics") # for chart correlation
+library(usmap) # for plotting data us maps
+library(scales) # for muted() function
 ```
 
 load data
@@ -42,6 +46,7 @@ load("data_all_444sub_attitude.Rda")
 # combine data
 data.all <- merge(data.all, data.attitude, by = "mTurkCode")
 data.all$age <- as.numeric(as.character(data.all$age)) + 17 # correct coding
+rm(data.attitude)
 ```
 
 save into spread sheet
@@ -51,6 +56,8 @@ save into spread sheet
 # write.csv(data.all,"data_all_444sub.csv", row.names = FALSE)
 ```
 
+Preprocess some data columns, run the following chunks before further analysis:
+---
 Separate young and old, compare with 60 yr
 ```{r}
 data.all$is.young <- 1
@@ -58,15 +65,25 @@ data.all$is.young[data.all$age >= 60] = 0
 data.all$is.young <- as.factor(data.all$is.young)
 ```
 
+Clean zipcode
+```{r}
+# clean zipcode
+data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
+data(zipcode)
+data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
+```
+
+End of preprocessing
+---
 
 take only the first response of the repeated subjects
 ```{r}
-dupli <- data.all$WorkerId[duplicated(data.all$WorkerId)] 
-dupli
-length(dupli)
-
-data.repeat <- data.all[is.element(data.all$WorkerId, dupli),]
-nrow(data.repeat)
+# dupli <- data.all$WorkerId[duplicated(data.all$WorkerId)] 
+# dupli
+# length(dupli)
+# 
+# data.repeat <- data.all[is.element(data.all$WorkerId, dupli),]
+# nrow(data.repeat)
 ```
 
 Look at column names
@@ -81,27 +98,20 @@ colnames(data.all)
 colnames(data.all)[c(155:164,166:171, 1)]
 t(header[1, c(155:164,166:171, 353)])
 
-data.demo <- data.all[,c(155:164,166:171, 1)]
-
-View(data.demo)
-colnames(data.demo)
 
 # age
-ggplot(data.demo, aes(x=age)) +
+ggplot(data.all, aes(x=age)) +
   geom_histogram(position = "identity", bins = 20) +
   labs(x = "Age")
 
-# geo
-data.demo$zip_postal_code <- as.numeric(as.character(data.demo$zip_postal_code))
-data(zipcode)
-data.demo$zipcode<- clean.zipcodes(data.demo$zip_postal_code)
 
 #size by zip
-data.zipcode<-aggregate(data.frame(count=data.demo$mTurkCode),list(zip=data.demo$zipcode),length)
+data.zipcode<-aggregate(data.frame(count=data.all$mTurkCode),list(zip=data.all$zipcode),length)
 geo<- merge(data.zipcode, zipcode, by='zip')
 
 us<-map_data('state')
 
+# note that this does not include Hawaii
 ggplot(geo,aes(longitude,latitude)) +
   geom_polygon(data=us,aes(x=long,y=lat,group=group),color='gray',fill=NA,alpha=.35) +
   geom_point(aes(color = count),size=0.8,alpha=0.4) + 
@@ -113,7 +123,8 @@ ggplot(geo,aes(longitude,latitude)) +
         axis.ticks.x = element_blank(),
         axis.ticks.y = element_blank(),
         panel.background = element_blank()) +
-  xlim(-125,-65)+ylim(20,50)
+  xlim(-125,-65)+ylim(20,50) +
+  ggtitle("Note: not including Hawaii and Alaska")
   
 
 ```
@@ -430,16 +441,11 @@ ggplot(data.all[data.all$error.mon<0.5,], aes(x=ambig1_react_nation, y=risk.mon)
 
 Should consider health impact by state
 ```{r}
-# clean zipcode
-data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
-data(zipcode)
-data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
-
 data.all$ambig2_health_impact <- as.numeric(as.character(data.all$ambig2_health_impact))
 
 # location of county by zipcode
 data.zipcode<-aggregate(
-  data.frame(health_impact=data.all$ambig2_health_impact),list(zip=data.all$zipcode),
+  data.frame(health_impact=4-data.all$ambig2_health_impact),list(zip=data.all$zipcode),
   mean,
   na.action=na.omit)
 
@@ -454,30 +460,23 @@ for (idx in 1:length(state_all)) {
   geo_state$health_impact[idx] <- mean(geo$health_impact[geo$state==state_all[idx]],na.rm=TRUE)
 }
 
-# map the state data to us map
-# geo_state_map <- map_with_data(geo_state, values="count", na=0)
-
 # plot
 plot_usmap(data=geo_state, regions="states",values="health_impact") +
-  scale_fill_gradient(limits=c(1,5)) +
+  scale_fill_gradient2(limits=c(-1,3),midpoint=0,low=muted("blue"),high=muted("red")) +
   ggtitle("Should consider health impact") +
-  labs(fill = "Extremely(1) ~ Not at all(7)") +
+  labs(fill = "Extremely (Red) \n~ \nUncertain (White) \n~ \nNot at all (Blue) \n") +
   theme(legend.position = "right")
 
 ```
 
 Should consider economic impact by state
 ```{r}
-# clean zipcode
-data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
-data(zipcode)
-data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
 
 data.all$ambig2_economics <- as.numeric(as.character(data.all$ambig2_economics))
 
 # location of county by zipcode
 data.zipcode<-aggregate(
-  data.frame(economic_impact=data.all$ambig2_economics),list(zip=data.all$zipcode),
+  data.frame(economic_impact=4-data.all$ambig2_economics),list(zip=data.all$zipcode),
   mean,
   na.action=na.omit)
 
@@ -486,7 +485,7 @@ geo<- merge(data.zipcode, zipcode, by='zip')
 # location of state by zipcodes
 state_all <- unique(geo$state)
 geo_state <- data.frame(state = state_all)
-View(geo_state)
+# View(geo_state)
 
 state_match <- match(geo$state, state_all)
 for (idx in 1:length(state_all)) {
@@ -495,26 +494,21 @@ for (idx in 1:length(state_all)) {
 
 # plot
 plot_usmap(data=geo_state, regions="states",values="economic_impact") +
-  scale_fill_gradient(limits=c(1,5)) +
+  scale_fill_gradient2(limits=c(-1,3),midpoint=0,low=muted("blue"),high=muted("red")) +
   ggtitle("Should consider economic impact") +
-  labs(fill = "Extremely(1) ~ Not at all(7)") +
+  labs(fill = "Extremely (Red) \n~ \nUncertain (White) \n~ \nNot at all (Blue) \n") +
   theme(legend.position = "right")
 
 ```
 
 Health - economic impact
 ```{r}
-# clean zipcode
-data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
-data(zipcode)
-data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
-
 data.all$ambig2_economics <- as.numeric(as.character(data.all$ambig2_economics))
 data.all$ambig2_health_impact <- as.numeric(as.character(data.all$ambig2_health_impact))
 
 # location of county by zipcode
 data.zipcode<-aggregate(
-  data.frame(health_economic=data.all$ambig2_health_impact-data.all$ambig2_economics),list(zip=data.all$zipcode),
+  data.frame(health_economic=data.all$ambig2_economics-data.all$ambig2_health_impact),list(zip=data.all$zipcode),
   mean,
   na.action=na.omit)
 
@@ -523,7 +517,7 @@ geo<- merge(data.zipcode, zipcode, by='zip')
 # location of state by zipcodes
 state_all <- unique(geo$state)
 geo_state <- data.frame(state = state_all)
-View(geo_state)
+# View(geo_state)
 
 state_match <- match(geo$state, state_all)
 for (idx in 1:length(state_all)) {
@@ -532,9 +526,9 @@ for (idx in 1:length(state_all)) {
 
 # plot
 plot_usmap(data=geo_state, regions="states",values="health_economic") +
-  scale_fill_gradient2(midpoint=0) +
-  ggtitle("Should consider impact: heath-economics contrast") +
-  labs(fill = "Health(-) ~ Economic(+)") +
+  scale_fill_gradient2(midpoint=0,low=muted("blue"),high=muted("red")) +
+  ggtitle("Should consider impact: heath-economic contrast") +
+  labs(fill = "Health (Red) \n~ \nUnbiased (White) \n~ \nEconomic (Blue) \n") +
   theme(legend.position = "right")
 
 ```
@@ -542,16 +536,11 @@ plot_usmap(data=geo_state, regions="states",values="health_economic") +
 How well-informed is the local government
 ```{r}
 
-# clean zipcode
-data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
-data(zipcode)
-data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
-
 data.all$ambig1_gov_local <- as.numeric(as.character(data.all$ambig1_gov_local))
 
 # location of county by zipcode
 data.zipcode<-aggregate(
-  data.frame(informed=data.all$ambig1_gov_local),list(zip=data.all$zipcode),
+  data.frame(informed=4-data.all$ambig1_gov_local),list(zip=data.all$zipcode),
   mean,
   na.action=na.omit)
 
@@ -573,24 +562,22 @@ for (idx in 1:length(state_all)) {
 
 # plot
 plot_usmap(data=geo_state, regions="states",values="informed") +
+  scale_fill_gradient2(midpoint=0,low=muted("blue"),high=muted("red")) +
   ggtitle("How well-informed is the local government") +
-  labs(fill = "Very(1) ~ Very not(7)") +
+  labs(fill = "Very (Red) \n~ \nUncertain (White) \n~ \nVery not (Blue) \n") +
+  # labs(fill = "Very not(-3) ~ Uncertain(0) ~ Very(3)") +
   theme(legend.position = "right")
 ```
 
 
 How appropriate is the local government reaction by state
 ```{r}
-# clean zipcode
-data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
-data(zipcode)
-data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
 
 data.all$ambig1_react_state <- as.numeric(as.character(data.all$ambig1_react_state))
 
 # location of county by zipcode
 data.zipcode<-aggregate(
-  data.frame(react=data.all$ambig1_react_state),list(zip=data.all$zipcode),
+  data.frame(react=data.all$ambig1_react_state-3),list(zip=data.all$zipcode),
   mean,
   na.action=na.omit)
 
@@ -607,35 +594,26 @@ for (idx in 1:length(state_all)) {
   geo_state$react[idx] <- mean(geo$react[geo$state==state_all[idx]],na.rm=TRUE)
 }
 
-# map the state data to us map
-# geo_state_map <- map_with_data(geo_state, values="count", na=0)
-
 # plot
 plot_usmap(data=geo_state, regions="states",values="react") +
+  scale_fill_gradient2(midpoint=0) +
   ggtitle("How appropriate is the state government's reaction") +
-  labs(fill = "Overreacting(1) ~ Insufficient(7)") +
+  labs(fill = "Insufficient(Blue) \n~\nAppropriate(White) \n~\nOverreacting(Red) \n") +
   theme(legend.position = "right")
 
 ```
 
 Anxiety level by state
 ```{r}
-# clean zipcode
-data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
-data(zipcode)
-data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
-
 data.all$anx_feelingnow <- as.numeric(as.character(data.all$anx_feelingnow))
 
 # location of county by zipcode
 data.zipcode<-aggregate(
-  data.frame(anx=data.all$anx_feelingnow),list(zip=data.all$zipcode),
+  data.frame(anx=data.all$anx_feelingnow)-4,list(zip=data.all$zipcode),
   mean,
   na.action=na.omit)
 
 geo<- merge(data.zipcode, zipcode, by='zip')
-# View(data.zipcode)
-# View(geo)
 
 # location of state by zipcodes
 state_all <- unique(geo$state)
@@ -646,24 +624,17 @@ for (idx in 1:length(state_all)) {
   geo_state$anx[idx] <- mean(geo$anx[geo$state==state_all[idx]],na.rm=TRUE)
 }
 
-# map the state data to us map
-# geo_state_map <- map_with_data(geo_state, values="count", na=0)
-
 # plot
 plot_usmap(data=geo_state, regions="states",values="anx") +
+  scale_fill_gradient2(midpoint=0,low=muted("blue"),high=muted("red")) +
   ggtitle("How anxious are you feeling now") +
-  labs(fill = "Not at all(1) ~ Extremely(7)") +
+  labs(fill = "Extremely (Red)\n~\nA fair amount (White) \n~\nNot at all (Blue)\n") +
   theme(legend.position = "right")
 
 ```
 
 Count of participants by state
 ```{r}
-# clean zipcode
-data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
-data(zipcode)
-data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
-
 # location of county by zipcode
 data.zipcode<-aggregate(data.frame(count=data.all$mTurkCode),list(zip=data.all$zipcode),length)
 geo<- merge(data.zipcode, zipcode, by='zip')
@@ -673,6 +644,7 @@ geo<- merge(data.zipcode, zipcode, by='zip')
 # location of state by zipcodes
 state_all <- unique(geo$state)
 geo_state <- data.frame(state = state_all)
+View(geo_state)
 
 state_match <- match(geo$state, state_all)
 for (idx in 1:length(state_all)) {
