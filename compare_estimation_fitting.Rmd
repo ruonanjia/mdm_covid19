@@ -1,0 +1,231 @@
+---
+title: "compare estimation with model-fitting"
+output: html_notebook
+author: ruonanjia
+---
+
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+```
+
+Functions
+```{r}
+# functions
+data_summary <- function(data, varname, groupnames){
+  # Function to calculate the mean and the standard error
+  # for each group
+  #+++++++++++++++++++++++++
+  # data : a data frame
+  # varname : the name of a column containing the variable
+  #to be summariezed
+  # groupnames : vector of column names to be used as
+  # grouping variables
+  
+  require(plyr)
+  summary_func <- function(x, col){
+    c(mean = mean(x[[col]], na.rm=TRUE),
+      sd = sd(x[[col]], na.rm=TRUE)/sqrt(length(x[[col]])))
+  }
+  data_sum<-ddply(data, groupnames, .fun=summary_func,
+                  varname)
+  data_sum <- rename(data_sum, c("mean" = varname))
+  return(data_sum)
+}
+
+data_meanstd <- function(x) {
+  # Function to produce summary statistics (mean and +/- sd)
+  m <- mean(x)
+  ymin <- m-sd(x)
+  ymax <- m+sd(x)
+  return(c(y=m,ymin=ymin,ymax=ymax))
+}
+
+data_meanse <- function(x) {
+  # Function to produce summary statistics (mean and +/- sd)
+  m <- mean(x)
+  ymin <- m-sd(x)/sqrt(length(x))
+  ymax <- m+sd(x)/sqrt(length(x))
+  return(c(y=m,ymin=ymin,ymax=ymax))
+}
+```
+
+Load data
+```{r}
+path <- "/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data"
+setwd(path)
+
+fit_mon <- read.csv("par_08152020.csv", header = TRUE)
+exclude_list <- read.csv("exclude_list_mon.csv", header = TRUE)
+
+load("data_all_444sub_rename.Rda")
+load("data_all_444sub_rename_header.Rda")
+load("data_all_444sub_attitude.Rda")
+
+# combine data
+data.all <- merge(data.all, data.attitude, by = "mTurkCode")
+data.all$age <- as.numeric(as.character(data.all$age)) + 17 # correct coding
+
+```
+
+Take out the model-fitted parameters, monetary decisions
+```{r}
+fit_mon$beta_t <- -fit_mon$beta_mon
+fit_mon
+```
+
+Calculate the model-fitting probability for ambiguity levels
+```{r}
+ambigs <- c(0.24, 0.5, 0.74,1)
+
+fit_mon$fit_prob_a24 <- 0.5 - ambigs[1]/2*fit_mon$beta_mon
+fit_mon$fit_prob_a50 <- 0.5 - ambigs[2]/2*fit_mon$beta_mon
+fit_mon$fit_prob_a74 <- 0.5 - ambigs[3]/2*fit_mon$beta_mon
+fit_mon$fit_prob_a100 <- 0.5 - ambigs[4]/2*fit_mon$beta_mon
+
+fit_prob <- data.frame(mTurkCode = fit_mon$id,
+                       fit_prob_a24 = fit_mon$fit_prob_a24 *100, 
+                       fit_prob_a50 = fit_mon$fit_prob_a50*100, 
+                       fit_prob_a74 = fit_mon$fit_prob_a74*100,
+                       fit_prob_a100 = fit_mon$fit_prob_a100*100)
+```
+
+combine table
+```{r}
+data <- merge(data.all, fit_prob, by="mTurkCode")
+# data <- data_all
+
+colnames(data)[c(152:155)] = c("AmbigE_posoutcome_24", "AmbigE_posoutcome_50", "AmbigE_posoutcome_74", "AmbigE_posoutcome_100")
+```
+
+reorganize sheet
+```{r}
+
+idx = 1
+for (amb_level in c("24", "50", "74", "100")) {
+
+  estimate_single = data %>% select(mTurkCode, error.mon, contains(paste("AmbigE_posoutcome_", amb_level, sep = "")), contains(paste("fit_prob_a", amb_level, sep = "")))
+  estimate_single$amb_level = as.numeric(amb_level)
+  names(estimate_single)[3] = "estimate_amb" 
+  names(estimate_single)[4] = "fit_prob_amb"
+  
+  if (idx == 1) {
+    estimate = estimate_single
+  } else {
+    estimate = rbind(estimate, estimate_single)
+  }
+  
+  idx = idx + 1
+
+  
+}
+
+estimate$amb_level = as.factor(estimate$amb_level)
+estimate$estimate_amb = as.numeric(as.character(estimate$estimate_amb))
+
+```
+
+Calculate average
+```{r}
+id <- unique(estimate$mTurkCode)
+length(id)
+```
+
+Plot estimation by ambiguity level and outcome level
+```{r}
+# if want to exclude participants
+names(estimate)
+
+estimate_plot = estimate[estimate$error.mon < 0.5 & !is.nan(estimate$estimate_amb), ]
+
+tb2plot = data_summary(estimate_plot, varname = "estimate_amb", groupnames = c("amb_level"))
+
+ggplot(data = tb2plot, aes(x = amb_level, y = estimate_amb)) +
+  geom_bar(stat="identity", position=position_dodge(0.85), width = 0.8) +
+  geom_errorbar(aes(ymin=estimate_amb-sd, ymax=estimate_amb+sd), width=0.1, size=1, position=position_dodge(0.85)) +
+  # scale_fill_gradient2(low = "blue", high = "red") +
+  # scale_fill_viridis(discrete = TRUE) + 
+  # scale_fill_brewer(palette = "Greens") +
+  scale_fill_brewer(palette = "Greens") +
+  # scale_fill_viridis(discrete = TRUE, option="D") + 
+  geom_hline(yintercept = 50, linetype= "dashed") +
+  theme_classic() +
+  ggtitle('Estimation of outcome probability') +
+  theme(axis.line = element_line(size = 1)) +
+  theme(axis.ticks = element_line(size = 1, color = "black")) +
+  theme(axis.text = element_text(size = 12, color = "black"))
+
+
+```
+
+Plot model-fitted probability by ambiguity level 
+```{r}
+# if want to exclude participants
+names(estimate)
+
+estimate_plot = estimate[estimate$error.mon < 0.5 & !is.na(estimate$estimate_amb) & abs(estimate$fit_prob_amb) < 100, ]
+
+tb2plot = data_summary(estimate_plot, varname = "fit_prob_amb", groupnames = c("amb_level"))
+
+ggplot(data = tb2plot, aes(x = amb_level, y = fit_prob_amb)) +
+  geom_bar(stat="identity", position=position_dodge(0.85), width = 0.8) +
+  geom_errorbar(aes(ymin=fit_prob_amb-sd, ymax=fit_prob_amb+sd), width=0.1, size=1, position=position_dodge(0.85)) +
+  # scale_fill_gradient2(low = "blue", high = "red") +
+  # scale_fill_viridis(discrete = TRUE) + 
+  # scale_fill_brewer(palette = "Greens") +
+  scale_fill_brewer(palette = "Greens") +
+  # scale_fill_viridis(discrete = TRUE, option="D") + 
+  geom_hline(yintercept = 50, linetype= "dashed") +
+  theme_classic() +
+  ggtitle('Model-fitted outcome probability') +
+  theme(axis.line = element_line(size = 1)) +
+  theme(axis.ticks = element_line(size = 1, color = "black")) +
+  theme(axis.text = element_text(size = 12, color = "black"))
+
+
+```
+
+reorganize sheet to directly compare subjective and objective estimation
+```{r}
+subjective = estimate %>% select(mTurkCode, error.mon, estimate_amb, amb_level)
+colnames(subjective)[3] = "estimate"
+subjective$method <- "subjective"
+objective = estimate %>% select(mTurkCode, error.mon, fit_prob_amb, amb_level)
+colnames(objective)[3] = "estimate"
+objective$method <- "objective"
+
+compare <- rbind(subjective,objective)
+compare$method <- as.factor(compare$method)
+```
+
+Plot direct comparison between subjective and objective estimation 
+```{r}
+estimate_plot = compare[compare$error.mon < 0.5 & !is.na(compare$estimate) & abs(compare$estimate) < 100, ]
+
+include_id <- unique(estimate_plot$mTurkCode)
+
+tb2plot = data_summary(estimate_plot, varname = "estimate", groupnames = c("amb_level", "method"))
+
+
+ggplot(data = tb2plot, aes(x = amb_level, y = estimate, fill=method)) +
+  geom_bar(stat="identity", position=position_dodge(0.85), width = 0.8) +
+  geom_errorbar(aes(ymin=estimate-sd, ymax=estimate+sd), width=0.1, size=1, position=position_dodge(0.85)) +
+  # scale_fill_gradient2(low = "blue", high = "red") +
+  # scale_fill_viridis(discrete = TRUE) + 
+  # scale_fill_brewer(palette = "Greens") +
+  scale_fill_brewer(palette = "Greens") +
+  # scale_fill_viridis(discrete = TRUE, option="D") + 
+  geom_hline(yintercept = 50, linetype= "dashed") +
+  theme_classic() +
+  ggtitle('Compare outcome probability estimation') +
+  theme(axis.line = element_line(size = 1)) +
+  theme(axis.ticks = element_line(size = 1, color = "black")) +
+  theme(axis.text = element_text(size = 12, color = "black"))
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
