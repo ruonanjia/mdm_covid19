@@ -56,7 +56,8 @@ Load data
 path <- "/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data"
 setwd(path)
 
-fit_mon <- read.csv("par_08152020.csv", header = TRUE)
+fit_mon <- read.csv("par_08172020.csv", header = TRUE) # unconstrained fitting
+fit_mon_con <- read.csv("par_08182020.csv", header = TRUE) # constrained fitting for some subjects who need refitting
 exclude_list <- read.csv("exclude_list_mon.csv", header = TRUE)
 
 load("data_all_444sub_rename.Rda")
@@ -79,23 +80,26 @@ Calculate the model-fitting probability for ambiguity levels
 ```{r}
 ambigs <- c(0.24, 0.5, 0.74,1)
 
-fit_mon$fit_prob_a24 <- 0.5 - ambigs[1]/2*fit_mon$beta_mon
-fit_mon$fit_prob_a50 <- 0.5 - ambigs[2]/2*fit_mon$beta_mon
-fit_mon$fit_prob_a74 <- 0.5 - ambigs[3]/2*fit_mon$beta_mon
-fit_mon$fit_prob_a100 <- 0.5 - ambigs[4]/2*fit_mon$beta_mon
+fit_mon$fit_prob_a24 <- 0.5 - (ambigs[1]/2)*fit_mon$beta_mon
+fit_mon$fit_prob_a50 <- 0.5 - (ambigs[2]/2)*fit_mon$beta_mon
+fit_mon$fit_prob_a74 <- 0.5 - (ambigs[3]/2)*fit_mon$beta_mon
+fit_mon$fit_prob_a100 <- 0.5 - (ambigs[4]/2)*fit_mon$beta_mon
+fit_mon$fit_prob_a24 = fit_mon$fit_prob_a24 *100
+fit_mon$fit_prob_a50 = fit_mon$fit_prob_a50*100
+fit_mon$fit_prob_a74 = fit_mon$fit_prob_a74*100
+fit_mon$fit_prob_a100 = fit_mon$fit_prob_a100*100
 
-fit_prob <- data.frame(mTurkCode = fit_mon$id,
-                       fit_prob_a24 = fit_mon$fit_prob_a24 *100, 
-                       fit_prob_a50 = fit_mon$fit_prob_a50*100, 
-                       fit_prob_a74 = fit_mon$fit_prob_a74*100,
-                       fit_prob_a100 = fit_mon$fit_prob_a100*100)
+colnames(fit_mon)[1] <- "mTurkCode"
+View(fit_mon)
 ```
 
 combine table
 ```{r}
-data <- merge(data.all, fit_prob, by="mTurkCode")
-# data <- data_all
+data <- merge(data.all, fit_mon, by="mTurkCode")
+colnames(data)
 
+
+# rename subjective estimation columns
 colnames(data)[c(152:155)] = c("AmbigE_posoutcome_24", "AmbigE_posoutcome_50", "AmbigE_posoutcome_74", "AmbigE_posoutcome_100")
 ```
 
@@ -126,13 +130,17 @@ estimate$estimate_amb = as.numeric(as.character(estimate$estimate_amb))
 
 ```
 
-Calculate average
+```{r}
+estimate
+```
+
+Number of subjects
 ```{r}
 id <- unique(estimate$mTurkCode)
 length(id)
 ```
 
-Plot estimation by ambiguity level and outcome level
+Plot subjective estimation by ambiguity level 
 ```{r}
 # if want to exclude participants
 names(estimate)
@@ -159,12 +167,14 @@ ggplot(data = tb2plot, aes(x = amb_level, y = estimate_amb)) +
 
 ```
 
-Plot model-fitted probability by ambiguity level 
+Plot model-fitted probability by ambiguity level, exclude model-fitted probability estimation > 100 
 ```{r}
 # if want to exclude participants
 names(estimate)
 
 estimate_plot = estimate[estimate$error.mon < 0.5 & !is.na(estimate$estimate_amb) & abs(estimate$fit_prob_amb) < 100, ]
+
+# estimate_plot = estimate[estimate$error.mon < 0.5 & !is.na(estimate$estimate_amb), ]
 
 tb2plot = data_summary(estimate_plot, varname = "fit_prob_amb", groupnames = c("amb_level"))
 
@@ -223,6 +233,100 @@ ggplot(data = tb2plot, aes(x = amb_level, y = estimate, fill=method)) +
   theme(axis.ticks = element_line(size = 1, color = "black")) +
   theme(axis.text = element_text(size = 12, color = "black"))
 ```
+
+How many subjects 
+```{r}
+# colnames(data)
+
+# subjects with too many stochastic dominance error
+hist(data$beta_mon[data$error.mon>=0.5])
+sum(data$error.mon>=0.5)
+
+# subjects included
+hist(data$beta_mon[data$error.mon<0.5])
+sum(data$error.mon<=0.5)
+
+# alpha out of range
+sum(data$error.mon<=0.5 & (data$alpha_mon <= 0.1787 | data$alpha_mon >= 2.9495)) # 82
+
+# alpha out of range
+sum(data$error.mon<=0.5 & (data$beta_mon <= -3.4952 | data$beta_mon >= 4.0944)) # 140!
+exclude_beta <- data$mTurkCode[data$error.mon<=0.5 & (data$beta_mon <= -3.4952 | data$beta_mon >= 4.0944)]
+
+# alpha or beta out oc range # 157
+sum(data$error.mon<=0.5 & (data$alpha_mon <= 0.1787 | data$alpha_mon >= 2.9495) | (data$beta_mon <= -3.4952 | data$beta_mon >= 4.0944))
+refit <- data$mTurkCode[data$error.mon<=0.5 & (data$alpha_mon <= 0.1787 | data$alpha_mon >= 2.9495) | (data$beta_mon <= -3.4952 | data$beta_mon >= 4.0944)]
+```
+
+save these subjects to refit constrained fitting
+```{r}
+setwd(path)
+write.csv(refit, "refit_id.csv", row.names = FALSE)
+```
+
+
+Plot model-fitted probability by ambiguity level, exclude out of range beta (n=140) 
+```{r}
+# if want to exclude participants
+names(estimate)
+
+estimate_plot = estimate[estimate$error.mon < 0.5 & !is.na(estimate$estimate_amb) & !is.element(estimate$mTurkCode, exclude_beta), ]
+
+hist(estimate$fit_prob_amb[estimate$error.mon < 0.5 & !is.na(estimate$estimate_amb) & is.element(estimate$mTurkCode, exclude_beta)])
+
+# estimate_plot = estimate[estimate$error.mon < 0.5 & !is.na(estimate$estimate_amb), ]
+
+tb2plot = data_summary(estimate_plot, varname = "fit_prob_amb", groupnames = c("amb_level"))
+
+ggplot(data = tb2plot, aes(x = amb_level, y = fit_prob_amb)) +
+  geom_bar(stat="identity", position=position_dodge(0.85), width = 0.8) +
+  geom_errorbar(aes(ymin=fit_prob_amb-sd, ymax=fit_prob_amb+sd), width=0.1, size=1, position=position_dodge(0.85)) +
+  # scale_fill_gradient2(low = "blue", high = "red") +
+  # scale_fill_viridis(discrete = TRUE) + 
+  # scale_fill_brewer(palette = "Greens") +
+  scale_fill_brewer(palette = "Greens") +
+  # scale_fill_viridis(discrete = TRUE, option="D") + 
+  geom_hline(yintercept = 50, linetype= "dashed") +
+  theme_classic() +
+  ggtitle('Model-fitted outcome probability') +
+  theme(axis.line = element_line(size = 1)) +
+  theme(axis.ticks = element_line(size = 1, color = "black")) +
+  theme(axis.text = element_text(size = 12, color = "black"))
+
+
+```
+
+Plot direct comparison between subjective and objective estimation, exclude out of range beta (n=140) 
+```{r}
+estimate_plot = compare[compare$error.mon < 0.5 & !is.na(compare$estimate) & !is.element(estimate$mTurkCode, exclude_beta), ]
+
+include_id <- unique(estimate_plot$mTurkCode)
+
+tb2plot = data_summary(estimate_plot, varname = "estimate", groupnames = c("amb_level", "method"))
+
+
+ggplot(data = tb2plot, aes(x = amb_level, y = estimate, fill=method)) +
+  geom_bar(stat="identity", position=position_dodge(0.85), width = 0.8) +
+  geom_errorbar(aes(ymin=estimate-sd, ymax=estimate+sd), width=0.1, size=1, position=position_dodge(0.85)) +
+  # scale_fill_gradient2(low = "blue", high = "red") +
+  # scale_fill_viridis(discrete = TRUE) + 
+  # scale_fill_brewer(palette = "Greens") +
+  scale_fill_brewer(palette = "Greens") +
+  # scale_fill_viridis(discrete = TRUE, option="D") + 
+  geom_hline(yintercept = 50, linetype= "dashed") +
+  theme_classic() +
+  ggtitle('Compare outcome probability estimation') +
+  theme(axis.line = element_line(size = 1)) +
+  theme(axis.ticks = element_line(size = 1, color = "black")) +
+  theme(axis.text = element_text(size = 12, color = "black"))
+```
+
+
+Use constrained fitting for some subjects
+```{r}
+
+```
+
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
 
