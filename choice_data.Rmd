@@ -70,6 +70,13 @@ data.all$age <- as.numeric(as.character(data.all$age)) + 17 # correct coding
 trial.param <- read.csv("trialsinfo_COVID_19.csv", header = TRUE, )
 ```
 
+exclude subjects with too many stochastic dominance
+```{r}
+exclude_list <- data.frame(id = as.character(data.all$mTurkCode[data.all$error.mon >= 0.5]))
+exclude_list
+setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
+write.csv(exclude_list, file="exclude_list_mon.csv",row.names = FALSE)
+```
 
 estimation of ambiguity
 ```{r}
@@ -227,9 +234,10 @@ ggplot(data2plot, aes(x=outcome.level, y=rating)) +
 task data
 ```{r}
 # colnames(data.all)
-# colnames(data.all)[c(29:41,43:54,56:79,89:101,103:113,115:139,140:149,151:154,353)]
+colnames(data.all)[c(30:42,44:55,57:80,90:102,104:114,116:140,141:150,152:155,1)]
+
 # choice, rating, and ambiguity estimation
-data.task <- data.all[,c(29:41,43:54,56:79,89:101,103:113,115:139,140:149,151:154,353)]
+data.task <- data.all[,c(30:42,44:55,57:80,90:102,104:114,116:140,141:150,152:155,1)]
 # View(data.task)
 # colnames(data.task)
 # change column names for ambiguity estimation
@@ -250,7 +258,7 @@ for (i in 1:nrow(data.task)) {
   # single subject choice
   sub.choice <- trial.param
   choice <- data.task[i, 1:98]
-  id <- data.task$mTurkCode[i] # MTurk code
+  id <- as.factor(as.character(data.task$mTurkCode[i])) # MTurk code
   sub.choice$id <- id
   sub.choice$choice <- as.numeric(t(choice)) # transpose
   
@@ -278,6 +286,15 @@ data.choice.med$val <- as.factor(data.choice.med$val)
 data.choice.med$prob <- as.factor(data.choice.med$prob)
 data.choice.med$ambig <- as.factor(data.choice.med$ambig)
 ```
+
+save data
+```{r}
+setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
+save(data.choice.mon, file="data_choice_mon_444sub.Rda")
+save(data.choice.med, file="data_choice_med_444sub.Rda")
+
+```
+
 
 Plot average choice probability by uncertainty level
 ```{r}
@@ -692,6 +709,18 @@ Try model fitting by bayesian
 library(rethinking)
 ```
 
+```{r}
+setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
+load("data_choice_mon_444sub.Rda")
+load("data_choice_med_444sub.Rda")
+```
+
+```{r}
+setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
+write.csv(data.choice.mon,"data_choice_mon_444sub.csv", row.names = FALSE)
+write.csv(data.choice.med,"data_choice_med_444sub.csv", row.names = FALSE)
+```
+
 
 Behavioral fitting
 ```{r}
@@ -701,6 +730,9 @@ data.choice.mon$prob.ref <- 1 * rep(1, length(data.choice.mon$prob))
 data.choice.mon$ambig.ref <- 0 * rep(1, length(data.choice.mon$prob))
 data.choice.mon$val.ref <- 500 * rep(1, length(data.choice.mon$prob))
 
+data.choice.mon$ambig <- as.numeric(as.character(data.choice.mon$ambig))
+data.choice.mon$prob <- as.numeric(as.character(data.choice.mon$prob))
+
 # make id: 1 ~ number of subjects
 no_trials = sum(data.choice.mon$id == data.choice.mon$id[1])
 data.choice.mon$subid = NaN
@@ -709,7 +741,9 @@ for (i in c(1:444) ) {
   data.choice.mon$subid[(1+no_trials*(i-1)):(no_trials*i)] <- t(rep(i, no_trials))
 }
 
-# data.choice.mon$id <-  as.integer(as.character(data.choice.mon$id))
+data.choice.mon$subid <-  as.integer(as.character(data.choice.mon$subid))
+
+typeof(data.choice.mon$ambig.ref)
 
 data_list <- list(
   choice = as.numeric(as.character(data.choice.mon$choice)),
@@ -720,6 +754,17 @@ data_list <- list(
   ambig_ref = as.numeric(as.character(data.choice.mon$ambig.ref)),
   val_ref = as.numeric(as.character(data.choice.mon$val.ref)),
   id = as.integer(data.choice.mon$subid)
+)
+
+data_list <- list(
+  choice = data.choice.mon$choice[1:490],
+  prob = data.choice.mon$prob[1:490],
+  ambig = data.choice.mon$ambig[1:490],
+  val = data.choice.mon$val[1:490],
+  prob_ref = data.choice.mon$prob.ref[1:490],
+  ambig_ref = data.choice.mon$ambig.ref[1:490],
+  val_ref = data.choice.mon$val.ref[1:490],
+  id = data.choice.mon$subid[1:490]
 )
 
 fit.choice.multi <- ulam(
@@ -734,9 +779,9 @@ fit.choice.multi <- ulam(
     # beta[id] ~ dnorm(miu_b, sigma_b),
     # slope[id] ~ dnorm(miu_s, sigma_s),
     
-    alpha[id] ~ dnorm(1, 1),
+    alpha[id] ~ dlnorm(0, 1),
     beta[id] ~ dnorm(0, 1),
-    slope[id] ~ dnorm(-2, 3)
+    slope[id] ~ dnorm(2, 3)
     
     # group level priors
     # miu_a ~ dnorm(1, 1),
@@ -749,7 +794,8 @@ fit.choice.multi <- ulam(
     # sigma_s ~ dexp(1),
   ), 
   data = data_list, iter = 1e3, chains=4,
-  start = list(alpha = rep(1, 444), beta = rep(0, 444), sigma = rep(-2, 444))
+  # start=list(alpha=.5, beta=0, sigma=1)
+  start = list(alpha = rep(0.5, 10), beta = rep(0.2, 10), sigma = rep(-1, 10))
 )
 
 # no multilevel
@@ -760,13 +806,13 @@ fit.choice <- ulam(
     uL <- (prob - beta * (ambig/2)) * val ^alpha, # subjective value of the lottery
     uR <- (prob_ref - beta * (ambig_ref/2)) * val_ref ^alpha, # subjective value of the reference
     
-    
     alpha ~ dnorm(1, 1),
     beta ~ dnorm(0, 1),
     slope ~ dnorm(-2, 3)
     
   ), 
-  data = data_list, iter = 1e4, chains=4
+  data = data_list, iter = 1e4, chains=4,
+  start = list(alpha = 0.5, beta = 0.2, sigma = 1)
 )
 ```
 
