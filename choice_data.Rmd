@@ -802,8 +802,9 @@ data_list <- list(
 )
 
 n_try = 5
+start = 11
 data_list <- list(
-  choice = data.choice.mon$choice[1:n_try*no_trials],
+  choice = data.choice.mon$choice[start:(start + n_try*no_trials)],
   prob = data.choice.mon$prob[1:n_try*no_trials],
   ambig = data.choice.mon$ambig[1:n_try*no_trials],
   val = data.choice.mon$val[1:n_try*no_trials],
@@ -828,42 +829,21 @@ data.choice.mon
 fit.choice.nopool <- ulam(
   alist(
     choice ~ dbinom(1, choice_prob), # sample from bernoulli distribution
-    logit(choice_prob) <- (uL-uR)/slope[id],
+    logit(choice_prob) <- (uL-uR)*slope[id],
     # choice_prob <- 1 / (1 + exp(slope[id]*(uL-uR))), # choice probablity of the lottery
     uL <- (prob - beta[id] * (ambig/2)) * val ^alpha[id], # subjective value of the lottery
     uR <- (prob_ref - beta[id] * (ambig_ref/2)) * val_ref ^alpha[id], # subjective value of the reference
     
-    alpha[id] ~ dlnorm(0, 1),
-    beta[id] ~ dnorm(0, 1),
-    slope[id] ~ dnorm(-1, 3)
+    alpha[id] ~ dlnorm(0.5, 2),
+    beta[id] ~ dnorm(0.2, 2),
+    slope[id] ~ dnorm(1, 3)
     
   ), 
   data = data_list, iter = 1e3, chains=4,
-  start = list(alpha = rep(0.5, n_try), beta = rep(0.2, n_try), sigma = rep(-1, n_try))
+  start = list(alpha = rep(0.5, n_try), beta = rep(0.2, n_try), sigma = rep(1, n_try))
 )
 
 ```
-
-
-```{r}
-# no individual subject
-fit.choice <- ulam(
-  alist(
-    choice ~ dbinom(1, choice_prob), # sample from bernoulli distribution
-    choice_prob <- 1 / (1 + exp(slope*(uL-uR))), # choice probablity of the lottery
-    uL <- (prob - beta * (ambig/2)) * val ^alpha, # subjective value of the lottery
-    uR <- (prob_ref - beta * (ambig_ref/2)) * val_ref ^alpha, # subjective value of the reference
-    
-    alpha ~ dnorm(1, 1),
-    beta ~ dnorm(0, 1),
-    slope ~ dnorm(-2, 3)
-    
-  ), 
-  data = data_list, iter = 1e4, chains=4,
-  start = list(alpha = 0.5, beta = 0.2, sigma = 1)
-)
-```
-
 
 Look at model fitting result
 ```{r}
@@ -873,13 +853,33 @@ par.nopool <- data.frame(precis(fit.choice.nopool, depth=2))
 View(par.nopool)
 ```
 
+```{r}
+# no individual subject
+fit.choice <- ulam(
+  alist(
+    choice ~ dbinom(1, choice_prob), # sample from bernoulli distribution
+    logit(choice_prob) <- (uL-uR)*slope[id], # choice probablity of the lottery
+    uL <- (prob - beta * (ambig/2)) * val ^alpha, # subjective value of the lottery
+    uR <- (prob_ref - beta * (ambig_ref/2)) * val_ref ^alpha, # subjective value of the reference
+    
+    alpha ~ dnorm(0.5, 2),
+    beta ~ dnorm(0.2, 2),
+    slope ~ dnorm(1, 2)
+    
+  ), 
+  data = data_list, iter = 1e4, chains=4,
+  start = list(alpha = 0.5, beta = 0.2, sigma = 1)
+)
+```
+
+
 ## multilevel fitting, partial pooling
 ```{r}
 # individual subjects, not multilevel
 fit.choice.partpool <- ulam(
   alist(
     choice ~ dbinom(1, choice_prob), # sample from bernoulli distribution
-    logit(choice_prob) <- (uL-uR)/slope[id],
+    logit(choice_prob) <- (uL-uR)*slope[id],
     # choice_prob <- 1 / (1 + exp(slope[id]*(uL-uR))), # choice probablity of the lottery
     uL <- (prob - beta[id] * (ambig/2)) * val ^alpha[id], # subjective value of the lottery
     uR <- (prob_ref - beta[id] * (ambig_ref/2)) * val_ref ^alpha[id], # subjective value of the reference
@@ -896,59 +896,49 @@ fit.choice.partpool <- ulam(
     miu_b ~ dnorm(0.2, 1),
     sigma_b ~ dexp(1),
 
-    miu_s ~ dnorm(-2, 3),
+    miu_s ~ dnorm(1, 3),
     sigma_s ~ dexp(1)
     
   ), 
   data = data_list, iter = 1e3, chains=4,
-  start=list(miu_a=0.5, miu_b=0.2, miu_s=-1, sigma_a = 1, sigma_b = 1, sigma_s = 1)
+  start=list(miu_a=0.5, miu_b=0.2, miu_s=1, sigma_a = 1, sigma_b = 1, sigma_s = 1)
 )
 
 ```
 
 Look at model fitting result
 ```{r}
-par.partpool <- precis(fit.choice.partpool, depth=2)
+par.partpool <- data.frame(precis(fit.choice.partpool, depth=2))
 # str(fit.choice)
 
-par.partpool
 View(par.partpool)
 
-tmp <- data.frame(par.partpool)
-View(tmp)
 ```
 
-Try quap
+## Compare the no-pooling and part-pooling
 ```{r}
-fit.choice.quap <- quap(
-  alist(
-    choice ~ dbinom(1, choice_prob), # sample from bernoulli distribution
-    choice_prob <- 1 / (1 + exp(slope[id]*(uL-uR))), # choice probablity of the lottery
-    uL <- (prob - beta[id] * (ambig/2)) * val ^alpha[id], # subjective value of the lottery
-    uR <- (prob_ref - beta[id] * (ambig_ref/2)) * val_ref ^alpha[id], # subjective value of the reference
-    
-    # alpha[id] ~ dnorm(miu_a, sigma_a),
-    # beta[id] ~ dnorm(miu_b, sigma_b),
-    # slope[id] ~ dnorm(miu_s, sigma_s),
-    
-    alpha[id] ~ dnorm(1, 1),
-    beta[id] ~ dnorm(0, 1),
-    slope[id] ~ dnorm(-2, 3)
-    
-    # group level priors
-    # miu_a ~ dnorm(1, 1),
-    # sigma_a ~ dexp(1),
-    # 
-    # miu_b ~ dnorm(0, 1),
-    # sigma_b ~ dexp(1),
-    # 
-    # miu_s ~ dnorm(-2, 3),
-    # sigma_s ~ dexp(1),
-  ), 
-  data = data_list
+
+nopool <- data.frame(
+  id = c(1:5),
+  alpha = par.nopool$mean[1:5],
+  beta = par.nopool$mean[6:10],
+  slope = par.nopool$mean[11:15],
+  method=rep('nopool', 5)
 )
+
+partpool <- data.frame(
+  id=c(1:5),
+  alpha=par.partpool$mean[1:5],
+  beta=par.partpool$mean[6:10],
+  slope=par.partpool$mean[11:15],
+  method=rep('partpool', 5)
+)
+
+compare <- rbind(nopool, partpool)
 ```
 
-
-
+```{r}
+ggplot(compare, aes(x = id, y = slope, color = method, fill = method)) + 
+  geom_point()
+```
 
