@@ -4,13 +4,13 @@ output: html_notebook
 author: ruonanjia
 ---
 
-
+# Load package
 ```{r}
 library(tidyverse)
 library(ggplot2)
 ```
 
-Functions
+# Functions
 ```{r}
 # functions
 data_summary <- function(data, varname, groupnames){
@@ -51,13 +51,12 @@ data_meanse <- function(x) {
 }
 ```
 
-Load data
+# Load data
 ```{r}
 path <- "/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data"
 setwd(path)
 
 fit_mon <- read.csv("par_08172020.csv", header = TRUE) # unconstrained fitting
-fit_mon_con <- read.csv("par_08182020.csv", header = TRUE) # constrained fitting for some subjects who need refitting
 exclude_list <- read.csv("exclude_list_mon.csv", header = TRUE)
 
 load("data_all_444sub_rename.Rda")
@@ -70,13 +69,14 @@ data.all$age <- as.numeric(as.character(data.all$age)) + 17 # correct coding
 
 ```
 
-Take out the model-fitted parameters, monetary decisions
+# Take out the model-fitted parameters, monetary decisions
 ```{r}
 fit_mon$beta_t <- -fit_mon$beta_mon
 fit_mon
+
 ```
 
-Calculate the model-fitting probability for ambiguity levels
+# Calculate the model-fitting probability for ambiguity levels
 ```{r}
 ambigs <- c(0.24, 0.5, 0.74,1)
 
@@ -90,14 +90,13 @@ fit_mon$fit_prob_a74 = fit_mon$fit_prob_a74*100
 fit_mon$fit_prob_a100 = fit_mon$fit_prob_a100*100
 
 colnames(fit_mon)[1] <- "mTurkCode"
-View(fit_mon)
+# View(fit_mon)
 ```
 
 combine table
 ```{r}
 data <- merge(data.all, fit_mon, by="mTurkCode")
-colnames(data)
-
+# colnames(data)
 
 # rename subjective estimation columns
 colnames(data)[c(152:155)] = c("AmbigE_posoutcome_24", "AmbigE_posoutcome_50", "AmbigE_posoutcome_74", "AmbigE_posoutcome_100")
@@ -140,7 +139,7 @@ id <- unique(estimate$mTurkCode)
 length(id)
 ```
 
-Plot subjective estimation by ambiguity level 
+# Plot subjective estimation by ambiguity level 
 ```{r}
 # if want to exclude participants
 names(estimate)
@@ -167,7 +166,7 @@ ggplot(data = tb2plot, aes(x = amb_level, y = estimate_amb)) +
 
 ```
 
-Plot model-fitted probability by ambiguity level, exclude model-fitted probability estimation > 100 
+# Plot model-fitted probability by ambiguity level, exclude model-fitted probability estimation > 100 
 ```{r}
 # if want to exclude participants
 names(estimate)
@@ -196,7 +195,7 @@ ggplot(data = tb2plot, aes(x = amb_level, y = fit_prob_amb)) +
 
 ```
 
-reorganize sheet to directly compare subjective and objective estimation
+# reorganize sheet to directly compare subjective and objective estimation
 ```{r}
 subjective = estimate %>% select(mTurkCode, error.mon, estimate_amb, amb_level)
 colnames(subjective)[3] = "estimate"
@@ -209,7 +208,7 @@ compare <- rbind(subjective,objective)
 compare$method <- as.factor(compare$method)
 ```
 
-Plot direct comparison between subjective and objective estimation 
+# Plot direct comparison between subjective and objective estimation 
 ```{r}
 estimate_plot = compare[compare$error.mon < 0.5 & !is.na(compare$estimate) & abs(compare$estimate) < 100, ]
 
@@ -234,7 +233,7 @@ ggplot(data = tb2plot, aes(x = amb_level, y = estimate, fill=method)) +
   theme(axis.text = element_text(size = 12, color = "black"))
 ```
 
-How many subjects 
+# How many subjects 
 ```{r}
 # colnames(data)
 
@@ -265,7 +264,7 @@ write.csv(refit, "refit_id.csv", row.names = FALSE)
 ```
 
 
-Plot model-fitted probability by ambiguity level, exclude out of range beta (n=140) 
+# Plot model-fitted probability by ambiguity level, exclude out of range beta (n=140) 
 ```{r}
 # if want to exclude participants
 names(estimate)
@@ -296,7 +295,7 @@ ggplot(data = tb2plot, aes(x = amb_level, y = fit_prob_amb)) +
 
 ```
 
-Plot direct comparison between subjective and objective estimation, exclude out of range beta (n=140) 
+# Plot direct comparison between subjective and objective estimation, exclude out of range beta (n=140) 
 ```{r}
 estimate_plot = compare[compare$error.mon < 0.5 & !is.na(compare$estimate) & !is.element(estimate$mTurkCode, exclude_beta), ]
 
@@ -322,11 +321,190 @@ ggplot(data = tb2plot, aes(x = amb_level, y = estimate, fill=method)) +
 ```
 
 
-Use constrained fitting for some subjects
+# Use constrained fitting for some subjects
 ```{r}
+fit_mon_con <- read.csv("par_08182020.csv", header = TRUE) # constrained fitting for some subjects who need refitting
+
+fit_mon_con$beta_t <- -fit_mon_con$beta_mon
+fit_mon_con
+```
+
+Calculate the model-fitting probability for ambiguity levels
+```{r}
+ambigs <- c(0.24, 0.5, 0.74,1)
+
+fit_mon_con$fit_prob_a24 <- 0.5 - (ambigs[1]/2)*fit_mon_con$beta_mon
+fit_mon_con$fit_prob_a50 <- 0.5 - (ambigs[2]/2)*fit_mon_con$beta_mon
+fit_mon_con$fit_prob_a74 <- 0.5 - (ambigs[3]/2)*fit_mon_con$beta_mon
+fit_mon_con$fit_prob_a100 <- 0.5 - (ambigs[4]/2)*fit_mon_con$beta_mon
+fit_mon_con$fit_prob_a24 = fit_mon_con$fit_prob_a24 *100
+fit_mon_con$fit_prob_a50 = fit_mon_con$fit_prob_a50*100
+fit_mon_con$fit_prob_a74 = fit_mon_con$fit_prob_a74*100
+fit_mon_con$fit_prob_a100 = fit_mon_con$fit_prob_a100*100
+
+colnames(fit_mon_con)[1] <- "mTurkCode"
+View(fit_mon_con)
+```
+
+combine table for the 157 subjects refitted
+```{r}
+data_con <- merge(data.all, fit_mon_con, by="mTurkCode")
+colnames(data_con)
+nrow(data_con)
+
+# rename subjective estimation columns
+colnames(data_con)[c(152:155)]
+colnames(data_con)[c(152:155)] = c("AmbigE_posoutcome_24", "AmbigE_posoutcome_50", "AmbigE_posoutcome_74", "AmbigE_posoutcome_100")
+```
+
+reorganize sheet
+```{r}
+
+idx = 1
+for (amb_level in c("24", "50", "74", "100")) {
+
+  estimate_single = data_con %>% select(mTurkCode, error.mon, contains(paste("AmbigE_posoutcome_", amb_level, sep = "")), contains(paste("fit_prob_a", amb_level, sep = "")))
+  estimate_single$amb_level = as.numeric(amb_level)
+  names(estimate_single)[3] = "estimate_amb" 
+  names(estimate_single)[4] = "fit_prob_amb"
+  
+  if (idx == 1) {
+    estimate_con = estimate_single
+  } else {
+    estimate_con = rbind(estimate_con, estimate_single)
+  }
+  
+  idx = idx + 1
+
+  
+}
+
+estimate_con$amb_level = as.factor(estimate_con$amb_level)
+estimate_con$estimate_amb = as.numeric(as.character(estimate_con$estimate_amb))
 
 ```
 
+```{r}
+estimate_con
+```
+
+Plot subjective estimation by ambiguity level 
+```{r}
+# if want to exclude participants
+names(estimate_con)
+
+estimate_plot = estimate_con[estimate_con$error.mon < 0.5 & !is.nan(estimate_con$estimate_amb), ]
+
+tb2plot = data_summary(estimate_plot, varname = "estimate_amb", groupnames = c("amb_level"))
+
+ggplot(data = tb2plot, aes(x = amb_level, y = estimate_amb)) +
+  geom_bar(stat="identity", position=position_dodge(0.85), width = 0.8) +
+  geom_errorbar(aes(ymin=estimate_amb-sd, ymax=estimate_amb+sd), width=0.1, size=1, position=position_dodge(0.85)) +
+  # scale_fill_gradient2(low = "blue", high = "red") +
+  # scale_fill_viridis(discrete = TRUE) + 
+  # scale_fill_brewer(palette = "Greens") +
+  scale_fill_brewer(palette = "Greens") +
+  # scale_fill_viridis(discrete = TRUE, option="D") + 
+  geom_hline(yintercept = 50, linetype= "dashed") +
+  theme_classic() +
+  ggtitle('Estimation of outcome probability') +
+  theme(axis.line = element_line(size = 1)) +
+  theme(axis.ticks = element_line(size = 1, color = "black")) +
+  theme(axis.text = element_text(size = 12, color = "black"))
+
+
+```
+
+Plot model-fitted probability by ambiguity level 
+```{r}
+# if want to exclude participants
+names(estimate_con)
+
+estimate_plot = estimate_con[estimate_con$error.mon < 0.5 & !is.na(estimate_con$estimate_amb), ]
+
+sum(estimate_con$error.mon < 0.5 & !is.na(estimate_con$estimate_amb))/4
+
+tb2plot = data_summary(estimate_plot, varname = "fit_prob_amb", groupnames = c("amb_level"))
+
+ggplot(data = tb2plot, aes(x = amb_level, y = fit_prob_amb)) +
+  geom_bar(stat="identity", position=position_dodge(0.85), width = 0.8) +
+  geom_errorbar(aes(ymin=fit_prob_amb-sd, ymax=fit_prob_amb+sd), width=0.1, size=1, position=position_dodge(0.85)) +
+  # scale_fill_gradient2(low = "blue", high = "red") +
+  # scale_fill_viridis(discrete = TRUE) + 
+  # scale_fill_brewer(palette = "Greens") +
+  scale_fill_brewer(palette = "Greens") +
+  # scale_fill_viridis(discrete = TRUE, option="D") + 
+  geom_hline(yintercept = 50, linetype= "dashed") +
+  theme_classic() +
+  ggtitle('Model-fitted outcome probability') +
+  theme(axis.line = element_line(size = 1)) +
+  theme(axis.ticks = element_line(size = 1, color = "black")) +
+  theme(axis.text = element_text(size = 12, color = "black"))
+
+```
+
+
+# Take a closer look into the refit subjects
+
+```{r}
+colnames(data)
+data$ambig24.mon
+
+# those who made at least one stochastic dominance error, n = 85
+sum(data$error.mon>0)
+
+# those who never chose the ambiguous lottery, n = 170
+data$mTurkCode[rowMeans(data.frame(data$ambig24.mon, data$ambig50.mon, data$ambig74.mon, data$ambig100.mon), na.rm=TRUE) == 0]
+
+# those who never chose the risky lottery, n = 55
+length(data$mTurkCode[data$risk.mon == 0])
+
+# those who never chose any lottery, n = 52
+length(data$mTurkCode[data$risk.mon == 0 & rowMeans(data.frame(data$ambig24.mon, data$ambig50.mon, data$ambig74.mon, data$ambig100.mon), na.rm=TRUE) == 0])
+
+# those who never chose the ambiguous lottery, and never made error, n = 161
+sum(rowMeans(data.frame(data$ambig24.mon, data$ambig50.mon, data$ambig74.mon, data$ambig100.mon), na.rm=TRUE) == 0 & data$error.mon == 0)
+
+# those who never chose the risky lottery, and never made error, n = 55
+sum(data$risk.mon == 0 & data$error.mon == 0)
+
+# those who never chose any lottery, and never made error, n = 52
+sum(rowMeans(data.frame(data$ambig24.mon, data$ambig50.mon, data$ambig74.mon, data$ambig100.mon), na.rm=TRUE) == 0 & data$risk.mon == 0 & data$error.mon == 0)
+
+```
+
+read subject list of needing constrained fitting
+```{r}
+setwd(path)
+refit <- read.csv("refit_id.csv", header = TRUE)
+```
+
+```{r}
+
+typeof(refit$x)
+typeof(data$mTurkCode)
+
+# those who need refitting, and also did not chose any of the ambiguous lottery, n = 133 (out of 157 refitting)
+sum(is.element(data$mTurkCode[rowMeans(data.frame(data$ambig24.mon, data$ambig50.mon, data$ambig74.mon, data$ambig100.mon), na.rm=TRUE) == 0], refit$x))
+
+# those who need refitting, and also did not chose any of the lottery, n = 52 (out of 157 refitting)
+sum(is.element(data$mTurkCode[rowMeans(data.frame(data$ambig24.mon, data$ambig50.mon, data$ambig74.mon, data$ambig100.mon), na.rm=TRUE) == 0 & data$risk.mon==0], refit$x))
+
+length(refit$x) # n=157
+```
+
+exclude list for bayesian fitting
+```{r}
+# those who did not choose any lottery, or did not choose any ambiguous lottery
+id <- data$mTurkCode[rowMeans(data.frame(data$ambig24.mon, data$ambig50.mon, data$ambig74.mon, data$ambig100.mon), na.rm=TRUE) == 0 | data$error.mon >= 0.5]
+
+length(id)
+```
+
+```{r}
+setwd(path)
+write.csv(id, "exclude_bayesian_fitting_mon.csv", row.names = FALSE)
+```
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
 
