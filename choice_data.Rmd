@@ -699,6 +699,14 @@ for (id in ids) {
 }
 ```
 
+
+```{r}
+setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
+write.csv(data.choice.mon,"data_choice_mon_444sub.csv", row.names = FALSE)
+write.csv(data.choice.med,"data_choice_med_444sub.csv", row.names = FALSE)
+```
+
+# Bayesian fitting
 Try model fitting by bayesian
 ```{r}
 # install.packages(c("devtools","mvtnorm","loo","coda", "dagitty"))
@@ -709,20 +717,37 @@ Try model fitting by bayesian
 library(rethinking)
 ```
 
+load data
 ```{r}
 setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
 load("data_choice_mon_444sub.Rda")
-load("data_choice_med_444sub.Rda")
+# load("data_choice_med_444sub.Rda")
+```
+
+exclude subjects
+```{r}
+setwd(path)
+# those who did not choose any ambiguous lottery
+exclude_list <- read.csv("exclude_bayesian_fitting_mon.csv", header = TRUE)
 ```
 
 ```{r}
-setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
-write.csv(data.choice.mon,"data_choice_mon_444sub.csv", row.names = FALSE)
-write.csv(data.choice.med,"data_choice_med_444sub.csv", row.names = FALSE)
+exclude_list
+colnames(data.choice.mon)
+data.choice.mon$id
+typeof(data.choice.mon$id)
+typeof(exclude_list$x)
+
+# no. of subjects excluded
+sum(is.element(data.choice.mon$id, exclude_list$x))/49 # 207
+
+# exclude
+data.choice.mon <- data.choice.mon[!is.element(data.choice.mon$id, exclude_list$x),]
+nrow(data.choice.mon)/49 # 237 subjects left
 ```
 
 
-Behavioral fitting
+## Prepare data for fitting
 ```{r}
 data.choice.mon$val <- data.choice.mon$val * 100
 
@@ -733,41 +758,74 @@ data.choice.mon$val.ref <- 500 * rep(1, length(data.choice.mon$prob))
 data.choice.mon$ambig <- as.numeric(as.character(data.choice.mon$ambig))
 data.choice.mon$prob <- as.numeric(as.character(data.choice.mon$prob))
 
+# check data type
+typeof(data.choice.mon$prob)
+typeof(data.choice.mon$ambig)
+typeof(data.choice.mon$val)
+typeof(data.choice.mon$prob.ref)
+typeof(data.choice.mon$ambig.ref)
+typeof(data.choice.mon$val.ref)
+
 # make id: 1 ~ number of subjects
 no_trials = sum(data.choice.mon$id == data.choice.mon$id[1])
+no_trials
+
 data.choice.mon$subid = NaN
 
-for (i in c(1:444) ) {
+for (i in c(1:(nrow(data.choice.mon)/no_trials))) {
   data.choice.mon$subid[(1+no_trials*(i-1)):(no_trials*i)] <- t(rep(i, no_trials))
 }
 
 data.choice.mon$subid <-  as.integer(as.character(data.choice.mon$subid))
 
-typeof(data.choice.mon$ambig.ref)
+
+# data_list <- list(
+#   choice = as.numeric(as.character(data.choice.mon$choice)),
+#   prob = as.numeric(as.character(data.choice.mon$prob)),
+#   ambig = as.numeric(as.character(data.choice.mon$ambig)),
+#   val = as.numeric(as.character(data.choice.mon$val)),
+#   prob_ref = as.numeric(as.character(data.choice.mon$prob.ref)),
+#   ambig_ref = as.numeric(as.character(data.choice.mon$ambig.ref)),
+#   val_ref = as.numeric(as.character(data.choice.mon$val.ref)),
+#   id = as.integer(data.choice.mon$subid)
+# )
 
 data_list <- list(
-  choice = as.numeric(as.character(data.choice.mon$choice)),
-  prob = as.numeric(as.character(data.choice.mon$prob)),
-  ambig = as.numeric(as.character(data.choice.mon$ambig)),
-  val = as.numeric(as.character(data.choice.mon$val)),
-  prob_ref = as.numeric(as.character(data.choice.mon$prob.ref)),
-  ambig_ref = as.numeric(as.character(data.choice.mon$ambig.ref)),
-  val_ref = as.numeric(as.character(data.choice.mon$val.ref)),
-  id = as.integer(data.choice.mon$subid)
+  choice = data.choice.mon$choice,
+  prob = data.choice.mon$prob,
+  ambig = data.choice.mon$ambig,
+  val = data.choice.mon$val,
+  prob_ref = data.choice.mon$prob.ref,
+  ambig_ref = data.choice.mon$ambig.ref,
+  val_ref = data.choice.mon$val.ref,
+  id = data.choice.mon$id
 )
 
+n_try = 5
 data_list <- list(
-  choice = data.choice.mon$choice[1:490],
-  prob = data.choice.mon$prob[1:490],
-  ambig = data.choice.mon$ambig[1:490],
-  val = data.choice.mon$val[1:490],
-  prob_ref = data.choice.mon$prob.ref[1:490],
-  ambig_ref = data.choice.mon$ambig.ref[1:490],
-  val_ref = data.choice.mon$val.ref[1:490],
-  id = data.choice.mon$subid[1:490]
+  choice = data.choice.mon$choice[1:n_try*no_trials],
+  prob = data.choice.mon$prob[1:n_try*no_trials],
+  ambig = data.choice.mon$ambig[1:n_try*no_trials],
+  val = data.choice.mon$val[1:n_try*no_trials],
+  prob_ref = data.choice.mon$prob.ref[1:n_try*no_trials],
+  ambig_ref = data.choice.mon$ambig.ref[1:n_try*no_trials],
+  val_ref = data.choice.mon$val.ref[1:n_try*no_trials],
+  id = data.choice.mon$subid[1:n_try*no_trials]
 )
 
-fit.choice.multi <- ulam(
+```
+
+
+```{r}
+data.choice.mon
+```
+
+
+## individual fitting, no pooling
+```{r}
+
+# individual subjects, not multilevel
+fit.choice.nopool <- ulam(
   alist(
     choice ~ dbinom(1, choice_prob), # sample from bernoulli distribution
     logit(choice_prob) <- (uL-uR)/slope[id],
@@ -775,30 +833,20 @@ fit.choice.multi <- ulam(
     uL <- (prob - beta[id] * (ambig/2)) * val ^alpha[id], # subjective value of the lottery
     uR <- (prob_ref - beta[id] * (ambig_ref/2)) * val_ref ^alpha[id], # subjective value of the reference
     
-    # alpha[id] ~ dnorm(miu_a, sigma_a),
-    # beta[id] ~ dnorm(miu_b, sigma_b),
-    # slope[id] ~ dnorm(miu_s, sigma_s),
-    
     alpha[id] ~ dlnorm(0, 1),
     beta[id] ~ dnorm(0, 1),
-    slope[id] ~ dnorm(2, 3)
+    slope[id] ~ dnorm(-1, 3)
     
-    # group level priors
-    # miu_a ~ dnorm(1, 1),
-    # sigma_a ~ dexp(1),
-    # 
-    # miu_b ~ dnorm(0, 1),
-    # sigma_b ~ dexp(1),
-    # 
-    # miu_s ~ dnorm(-2, 3),
-    # sigma_s ~ dexp(1),
   ), 
   data = data_list, iter = 1e3, chains=4,
-  # start=list(alpha=.5, beta=0, sigma=1)
-  start = list(alpha = rep(0.5, 10), beta = rep(0.2, 10), sigma = rep(-1, 10))
+  start = list(alpha = rep(0.5, n_try), beta = rep(0.2, n_try), sigma = rep(-1, n_try))
 )
 
-# no multilevel
+```
+
+
+```{r}
+# no individual subject
 fit.choice <- ulam(
   alist(
     choice ~ dbinom(1, choice_prob), # sample from bernoulli distribution
@@ -814,6 +862,60 @@ fit.choice <- ulam(
   data = data_list, iter = 1e4, chains=4,
   start = list(alpha = 0.5, beta = 0.2, sigma = 1)
 )
+```
+
+
+Look at model fitting result
+```{r}
+par.nopool <- data.frame(precis(fit.choice.nopool, depth=2))
+# str(fit.choice)
+
+View(par.nopool)
+```
+
+## multilevel fitting, partial pooling
+```{r}
+# individual subjects, not multilevel
+fit.choice.partpool <- ulam(
+  alist(
+    choice ~ dbinom(1, choice_prob), # sample from bernoulli distribution
+    logit(choice_prob) <- (uL-uR)/slope[id],
+    # choice_prob <- 1 / (1 + exp(slope[id]*(uL-uR))), # choice probablity of the lottery
+    uL <- (prob - beta[id] * (ambig/2)) * val ^alpha[id], # subjective value of the lottery
+    uR <- (prob_ref - beta[id] * (ambig_ref/2)) * val_ref ^alpha[id], # subjective value of the reference
+    
+    alpha[id] ~ dnorm(miu_a, sigma_a),
+    beta[id] ~ dnorm(miu_b, sigma_b),
+    slope[id] ~ dnorm(miu_s, sigma_s),
+    
+    
+    # group level priors
+    miu_a ~ dnorm(0.5, 1),
+    sigma_a ~ dexp(1),
+
+    miu_b ~ dnorm(0.2, 1),
+    sigma_b ~ dexp(1),
+
+    miu_s ~ dnorm(-2, 3),
+    sigma_s ~ dexp(1)
+    
+  ), 
+  data = data_list, iter = 1e3, chains=4,
+  start=list(miu_a=0.5, miu_b=0.2, miu_s=-1, sigma_a = 1, sigma_b = 1, sigma_s = 1)
+)
+
+```
+
+Look at model fitting result
+```{r}
+par.partpool <- precis(fit.choice.partpool, depth=2)
+# str(fit.choice)
+
+par.partpool
+View(par.partpool)
+
+tmp <- data.frame(par.partpool)
+View(tmp)
 ```
 
 Try quap
