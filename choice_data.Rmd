@@ -720,6 +720,7 @@ library(rethinking)
 load data
 ```{r}
 setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
+path = "/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data"
 load("data_choice_mon_444sub.Rda")
 # load("data_choice_med_444sub.Rda")
 ```
@@ -732,11 +733,11 @@ exclude_list <- read.csv("exclude_bayesian_fitting_mon.csv", header = TRUE)
 ```
 
 ```{r}
-exclude_list
-colnames(data.choice.mon)
-data.choice.mon$id
-typeof(data.choice.mon$id)
-typeof(exclude_list$x)
+# exclude_list
+# colnames(data.choice.mon)
+# data.choice.mon$id
+# typeof(data.choice.mon$id)
+# typeof(exclude_list$x)
 
 # no. of subjects excluded
 sum(is.element(data.choice.mon$id, exclude_list$x))/49 # 207
@@ -790,35 +791,37 @@ data.choice.mon$subid <-  as.integer(as.character(data.choice.mon$subid))
 #   id = as.integer(data.choice.mon$subid)
 # )
 
-data_list <- list(
-  choice = data.choice.mon$choice,
-  prob = data.choice.mon$prob,
-  ambig = data.choice.mon$ambig,
-  val = data.choice.mon$val,
-  prob_ref = data.choice.mon$prob.ref,
-  ambig_ref = data.choice.mon$ambig.ref,
-  val_ref = data.choice.mon$val.ref,
-  id = data.choice.mon$id
-)
+# data_list <- list(
+#   choice = data.choice.mon$choice,
+#   prob = data.choice.mon$prob,
+#   ambig = data.choice.mon$ambig,
+#   val = data.choice.mon$val,
+#   prob_ref = data.choice.mon$prob.ref,
+#   ambig_ref = data.choice.mon$ambig.ref,
+#   val_ref = data.choice.mon$val.ref,
+#   id = data.choice.mon$id
+# )
 
-n_try = 5
-start = 11
+n_try = 10 #  number of subjects to try
+start = 1 # start from the nth participant
 data_list <- list(
-  choice = data.choice.mon$choice[start:(start + n_try*no_trials)],
-  prob = data.choice.mon$prob[1:n_try*no_trials],
-  ambig = data.choice.mon$ambig[1:n_try*no_trials],
-  val = data.choice.mon$val[1:n_try*no_trials],
-  prob_ref = data.choice.mon$prob.ref[1:n_try*no_trials],
-  ambig_ref = data.choice.mon$ambig.ref[1:n_try*no_trials],
-  val_ref = data.choice.mon$val.ref[1:n_try*no_trials],
-  id = data.choice.mon$subid[1:n_try*no_trials]
+  choice = data.choice.mon$choice[(no_trials*(start-1) + 1):((start + n_try-1)*no_trials)],
+  prob = data.choice.mon$prob[(no_trials*(start-1) + 1):((start + n_try-1)*no_trials)],
+  ambig = data.choice.mon$ambig[(no_trials*(start-1) + 1):((start + n_try-1)*no_trials)],
+  val = data.choice.mon$val[(no_trials*(start-1) + 1):((start + n_try-1)*no_trials)],
+  prob_ref = data.choice.mon$prob.ref[(no_trials*(start-1) + 1):((start + n_try-1)*no_trials)],
+  ambig_ref = data.choice.mon$ambig.ref[(no_trials*(start-1) + 1):((start + n_try-1)*no_trials)],
+  val_ref = data.choice.mon$val.ref[(no_trials*(start-1) + 1):((start + n_try-1)*no_trials)],
+  id = data.choice.mon$subid[(no_trials*(start-1) + 1):((start + n_try-1)*no_trials)] - start + 1
 )
 
 ```
 
-
+check data
 ```{r}
 data.choice.mon
+View(data_list)
+data_list[["id"]]
 ```
 
 
@@ -919,26 +922,32 @@ View(par.partpool)
 ```{r}
 
 nopool <- data.frame(
-  id = c(1:5),
-  alpha = par.nopool$mean[1:5],
-  beta = par.nopool$mean[6:10],
-  slope = par.nopool$mean[11:15],
-  method=rep('nopool', 5)
+  id = c(1:n_try),
+  alpha = par.nopool$mean[1:n_try],
+  beta = par.nopool$mean[(n_try + 1):(2*n_try)],
+  slope = par.nopool$mean[(2*n_try + 1):(3*n_try)],
+  method=rep('nopool', n_try)
 )
 
 partpool <- data.frame(
-  id=c(1:5),
-  alpha=par.partpool$mean[1:5],
-  beta=par.partpool$mean[6:10],
-  slope=par.partpool$mean[11:15],
-  method=rep('partpool', 5)
+  id=c(1:n_try),
+  alpha=par.partpool$mean[1:n_try],
+  beta=par.partpool$mean[(n_try + 1):(2*n_try)],
+  slope=par.partpool$mean[(2*n_try + 1):(3*n_try)],
+  method=rep('partpool', n_try)
 )
 
 compare <- rbind(nopool, partpool)
 ```
 
 ```{r}
+ggplot(compare, aes(x = id, y = alpha, color = method, fill = method)) + 
+  geom_point(size = 3)
+
+ggplot(compare, aes(x = id, y = beta, color = method, fill = method)) + 
+  geom_point(size = 3)
+
 ggplot(compare, aes(x = id, y = slope, color = method, fill = method)) + 
-  geom_point()
+  geom_point(size = 3)
 ```
 
