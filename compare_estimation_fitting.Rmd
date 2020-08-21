@@ -1,6 +1,5 @@
 ---
 title: "compare estimation with model-fitting"
-output: html_notebook
 author: ruonanjia
 ---
 
@@ -8,6 +7,7 @@ author: ruonanjia
 ```{r}
 library(tidyverse)
 library(ggplot2)
+library()
 ```
 
 # Functions
@@ -495,7 +495,7 @@ length(refit$x) # n=157
 
 exclude list for bayesian fitting
 ```{r}
-# those who did not choose any lottery, or did not choose any ambiguous lottery
+# those who did not choose any ambiguous lottery
 id <- data$mTurkCode[rowMeans(data.frame(data$ambig24.mon, data$ambig50.mon, data$ambig74.mon, data$ambig100.mon), na.rm=TRUE) == 0 | data$error.mon >= 0.5]
 
 length(id)
@@ -504,6 +504,195 @@ length(id)
 ```{r}
 setwd(path)
 write.csv(id, "exclude_bayesian_fitting_mon.csv", row.names = FALSE)
+```
+
+
+
+# Compare model-predicted sv with ratings
+# Load data
+```{r}
+path <- "/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data"
+setwd(path)
+
+fit_mon <- read.csv("par_08172020.csv", header = TRUE) # unconstrained fitting
+exclude_list <- read.csv("exclude_list_mon.csv", header = TRUE)
+
+load("data_all_444sub_rename.Rda")
+load("data_all_444sub_rename_header.Rda")
+load("data_all_444sub_attitude.Rda")
+
+# combine data
+data.all <- merge(data.all, data.attitude, by = "mTurkCode")
+data.all$age <- as.numeric(as.character(data.all$age)) + 17 # correct coding
+
+```
+
+# Take out the model-fitted parameters, monetary decisions
+```{r}
+fit_mon
+```
+
+Calculate the model-fitting probability for ambiguity levels
+```{r}
+vals <- c(0, 500, 800, 1200, 2500)
+fit_mon$sv_0 <- vals[1]^fit_mon$alpha_mon
+fit_mon$sv_1 <- vals[2]^fit_mon$alpha_mon
+fit_mon$sv_2 <- vals[3]^fit_mon$alpha_mon
+fit_mon$sv_3 <- vals[4]^fit_mon$alpha_mon
+fit_mon$sv_4 <- vals[5]^fit_mon$alpha_mon
+# fit_prob <- data.frame(id = fit_mon$id,
+#                        is_med = fit_mon$is_med,
+#                        )
+fit_mon
+
+colnames(fit_mon)[1] <- "mTurkCode"
+# colnames(fit_mon)[2:13]=c("alpha_mon", "alphase_mon", "beta_mon","betase_mon","gamma_mon","gammase_mon","LL_mon","r2_mon","AIC_mon","BIC_mon","model_mon","fitby_mon")
+```
+
+combine table
+```{r}
+data <- merge(data.all, fit_mon, by="mTurkCode")
+# colnames(data)
+
+# rename subjective estimation columns
+colnames(data)[141:145]
+```
+
+reorganize sheet
+```{r}
+idx = 1
+monetary_level <- c(0, 500, 800, 1200, 2500)
+for (val_level in c("0", "1", "2", "3", "4")) {
+  
+  estimate_single = data %>% select(mTurkCode, contains(paste("RMon_", as.character(as.integer(val_level)+1), sep = "")), contains(paste("sv_", val_level, sep = "")))
+  
+  estimate_single$val_level = as.numeric(val_level)
+  estimate_single$mon_level = as.numeric(monetary_level[c("0", "1", "2", "3", "4")==val_level])
+  
+  names(estimate_single)[2] = "rating" 
+  names(estimate_single)[3] = "sv"
+  
+  
+  # estimate_mon = data[data$is_med == 0,] %>% select((id), eval(parse(paste("estimate_", amb_level, "_", out_level, sep = ""))))
+  # estimate_mon$out_level = as.numeric(out_level)
+  # estimate_mon$amb_level = as.numeric(amb_level)
+  
+  if (idx == 1) {
+    estimate = estimate_single
+  } else {
+    estimate = rbind(estimate, estimate_single)
+  }
+  
+  idx = idx + 1
+  
+}
+estimate$val_level = as.factor(estimate$val_level)
+View(estimate)
+```
+
+Calculate average
+```{r}
+ids <- unique(estimate$mTurkCode)
+length(ids)
+```
+
+# Select subjects
+```{r}
+exclude <- data$mTurkCode[data$error.mon<=0.5 & (data$alpha_mon <= 0.1787 | data$alpha_mon >= 2.9495)]
+length(exclude) # 82
+
+
+# alpha out of range
+sum(data$error.mon<=0.5 & (data$alpha_mon <= 0.1787 | data$alpha_mon >= 2.9495)) # 82
+
+# beta out of range
+sum(data$error.mon<=0.5 & (data$beta_mon <= -3.4952 | data$beta_mon >= 4.0944)) # 140!
+exclude_beta <- data$mTurkCode[data$error.mon<=0.5 & (data$beta_mon <= -3.4952 | data$beta_mon >= 4.0944)]
+
+# alpha or beta out of range # 157
+sum(data$error.mon<=0.5 & (data$alpha_mon <= 0.1787 | data$alpha_mon >= 2.9495) | (data$beta_mon <= -3.4952 | data$beta_mon >= 4.0944))
+refit <- data$mTurkCode[data$error.mon<=0.5 & (data$alpha_mon <= 0.1787 | data$alpha_mon >= 2.9495) | (data$beta_mon <= -3.4952 | data$beta_mon >= 4.0944)]
+```
+
+```{r}
+estimate <- estimate[!is.element(estimate$mTurkCode,exclude),]
+```
+
+
+## Normzlize model-estimated sv and subjective rating
+```{r}
+estimatee$rating_norm = NA
+estimate$sv_norm = NA
+for (id in ids){
+  estimate$rating_norm[estimate$mTurkCode==id] <- scale(estimate$rating[estimate$mTurkCode==id], center = TRUE, scale = TRUE)
+  
+    estimate$sv_norm[estimate$mTurkCode==id] <- scale(estimate$sv[estimate$mTurkCode==id], center = TRUE, scale = TRUE)
+}
+
+```
+
+##Plot fitted value against rating
+```{r}
+alpha_value <- 0.5
+ggplot(estimate, aes(x = sv_norm, y = rating_norm, color = id)) +
+  geom_point(size = 2) + geom_line(size = 1, alpha = alpha_value) +
+  scale_color_viridis(discrete = TRUE, option = "A") +
+  theme(panel.background = element_rect(fill = "grey80")) +
+  ggtitle('Comparing model-estimate subjective value and rating, Monetary')
+```
+
+
+##Plot fitted value against outcome level ($)
+```{r}
+alpha_value <- 0.5
+ggplot(estimate, aes(x = mon_level, y = sv_norm, color = id)) +
+  geom_point(size = 2) + geom_line(size = 1, alpha = alpha_value) +
+  scale_color_viridis(discrete = TRUE, option = "A") +
+  theme(panel.background = element_rect(fill = "grey80")) +
+  ggtitle('Model-estimate subjective value, Monetary')
+```
+
+##Plot rating against outcome level ($)
+```{r}
+alpha_value <- 0.5
+ggplot(estimate, aes(x = mon_level, y = rating_norm, color = id)) +
+  geom_point(size = 2) + geom_line(size = 1, alpha = alpha_value) +
+  scale_color_viridis(discrete = TRUE, option = "A") +
+  theme(panel.background = element_rect(fill = "grey80")) +
+  ggtitle('Rating, Monetary')
+```
+
+
+## recover alpha from rating, and compare with the model-fitted alpha
+
+```{r}
+# colnames(data)
+vals_obj = c(0, 5, 8, 12, 25)
+data$k <- NA
+data$alpha_rec <- NA
+```
+
+plot
+```{r}
+for (sub_idx in 1:length(ids)) {
+  vals <- as.numeric(estimate$rating_norm[estimate$id == ids[sub_idx]])
+  vals <- vals - vals[1]
+  fit_model <- nlsLM(vals ~ k*vals_obj^alpha, start = list(k = 1, alpha = 1), data = data.frame(vals, vals_obj))
+  k <- coef(fit_model)[1]
+  alpha_rec <- coef(fit_model)[2]
+  data$k[data$id == ids[sub_idx]] <- k
+  data$alpha_rec[data$id == ids[sub_idx]] <- alpha_rec
+  plot(vals_obj, vals, main = c(paste(as.character(ids[sub_idx]),'recover'), paste('k=', round(k,3), '; alpha=', round(alpha_rec,3))))
+  lines(seq(0,25,0.1), k*seq(0,25,0.1)^alpha_rec)
+}
+```
+
+##plot model-fitting alpha against recovered alpha from ratings
+```{r}
+plot(data$alpha_mon, data$alpha_rec,
+     xlab = "alpha, original model",
+     ylab = "recovered alpha, rating")
+abline(a=0, b=1)
 ```
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
