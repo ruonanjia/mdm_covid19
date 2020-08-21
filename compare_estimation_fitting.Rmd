@@ -7,7 +7,8 @@ author: ruonanjia
 ```{r}
 library(tidyverse)
 library(ggplot2)
-library()
+library(viridis)
+library(minpack.lm)
 ```
 
 # Functions
@@ -602,26 +603,27 @@ exclude <- data$mTurkCode[data$error.mon<=0.5 & (data$alpha_mon <= 0.1787 | data
 length(exclude) # 82
 
 
-# alpha out of range
-sum(data$error.mon<=0.5 & (data$alpha_mon <= 0.1787 | data$alpha_mon >= 2.9495)) # 82
-
-# beta out of range
-sum(data$error.mon<=0.5 & (data$beta_mon <= -3.4952 | data$beta_mon >= 4.0944)) # 140!
-exclude_beta <- data$mTurkCode[data$error.mon<=0.5 & (data$beta_mon <= -3.4952 | data$beta_mon >= 4.0944)]
-
-# alpha or beta out of range # 157
-sum(data$error.mon<=0.5 & (data$alpha_mon <= 0.1787 | data$alpha_mon >= 2.9495) | (data$beta_mon <= -3.4952 | data$beta_mon >= 4.0944))
-refit <- data$mTurkCode[data$error.mon<=0.5 & (data$alpha_mon <= 0.1787 | data$alpha_mon >= 2.9495) | (data$beta_mon <= -3.4952 | data$beta_mon >= 4.0944)]
+# # alpha out of range
+# sum(data$error.mon<=0.5 & (data$alpha_mon <= 0.1787 | data$alpha_mon >= 2.9495)) # 82
+# 
+# # beta out of range
+# sum(data$error.mon<=0.5 & (data$beta_mon <= -3.4952 | data$beta_mon >= 4.0944)) # 140!
+# exclude_beta <- data$mTurkCode[data$error.mon<=0.5 & (data$beta_mon <= -3.4952 | data$beta_mon >= 4.0944)]
+# 
+# # alpha or beta out of range # 157
+# sum(data$error.mon<=0.5 & (data$alpha_mon <= 0.1787 | data$alpha_mon >= 2.9495) | (data$beta_mon <= -3.4952 | data$beta_mon >= 4.0944))
+# refit <- data$mTurkCode[data$error.mon<=0.5 & (data$alpha_mon <= 0.1787 | data$alpha_mon >= 2.9495) | (data$beta_mon <= -3.4952 | data$beta_mon >= 4.0944)]
 ```
 
 ```{r}
 estimate <- estimate[!is.element(estimate$mTurkCode,exclude),]
+estimate$rating <- as.numeric(estimate$rating)
 ```
 
 
 ## Normzlize model-estimated sv and subjective rating
 ```{r}
-estimatee$rating_norm = NA
+estimate$rating_norm = NA
 estimate$sv_norm = NA
 for (id in ids){
   estimate$rating_norm[estimate$mTurkCode==id] <- scale(estimate$rating[estimate$mTurkCode==id], center = TRUE, scale = TRUE)
@@ -631,35 +633,45 @@ for (id in ids){
 
 ```
 
+```{r}
+id <- ids[1]
+estimate$rating[estimate$mTurkCode==id]
+estimate$mon_level[estimate$mTurkCode==id]
+estimate$sv[estimate$mTurkCode==id]
+```
+
 ##Plot fitted value against rating
 ```{r}
-alpha_value <- 0.5
-ggplot(estimate, aes(x = sv_norm, y = rating_norm, color = id)) +
-  geom_point(size = 2) + geom_line(size = 1, alpha = alpha_value) +
+alpha_value <- 0.1
+ggplot(estimate[!is.na(estimate$rating_norm),], aes(x = sv_norm, y = rating_norm, color = mTurkCode)) +
+  geom_point(size = 1) + geom_line(size = 1, alpha = alpha_value) +
   scale_color_viridis(discrete = TRUE, option = "A") +
   theme(panel.background = element_rect(fill = "grey80")) +
-  ggtitle('Comparing model-estimate subjective value and rating, Monetary')
+  ggtitle('Comparing model-estimate subjective value and rating, Monetary') +
+  theme(legend.position = "none")
 ```
 
 
 ##Plot fitted value against outcome level ($)
 ```{r}
-alpha_value <- 0.5
-ggplot(estimate, aes(x = mon_level, y = sv_norm, color = id)) +
+alpha_value <- 0.1
+ggplot(estimate[!is.na(estimate$sv_norm),], aes(x = mon_level, y = sv_norm, color = mTurkCode)) +
   geom_point(size = 2) + geom_line(size = 1, alpha = alpha_value) +
   scale_color_viridis(discrete = TRUE, option = "A") +
   theme(panel.background = element_rect(fill = "grey80")) +
-  ggtitle('Model-estimate subjective value, Monetary')
+  ggtitle('Model-estimate subjective value, Monetary') +
+  theme(legend.position = "none")
 ```
 
 ##Plot rating against outcome level ($)
 ```{r}
-alpha_value <- 0.5
-ggplot(estimate, aes(x = mon_level, y = rating_norm, color = id)) +
-  geom_point(size = 2) + geom_line(size = 1, alpha = alpha_value) +
+alpha_value <- 0.1
+ggplot(estimate[!is.na(estimate$rating_norm),], aes(x = mon_level, y = rating_norm, color = mTurkCode)) +
+  geom_point(size = 0.5) + geom_line(size = 1, alpha = alpha_value) +
   scale_color_viridis(discrete = TRUE, option = "A") +
   theme(panel.background = element_rect(fill = "grey80")) +
-  ggtitle('Rating, Monetary')
+  ggtitle('Rating, Monetary') +
+  theme(legend.position = "none")
 ```
 
 
@@ -667,7 +679,7 @@ ggplot(estimate, aes(x = mon_level, y = rating_norm, color = id)) +
 
 ```{r}
 # colnames(data)
-vals_obj = c(0, 5, 8, 12, 25)
+vals_obj = c(0, 500, 800, 1200, 2500)
 data$k <- NA
 data$alpha_rec <- NA
 ```
@@ -675,13 +687,13 @@ data$alpha_rec <- NA
 plot
 ```{r}
 for (sub_idx in 1:length(ids)) {
-  vals <- as.numeric(estimate$rating_norm[estimate$id == ids[sub_idx]])
+  vals <- as.numeric(estimate$rating_norm[estimate$mTurkCode == ids[sub_idx]])
   vals <- vals - vals[1]
   fit_model <- nlsLM(vals ~ k*vals_obj^alpha, start = list(k = 1, alpha = 1), data = data.frame(vals, vals_obj))
   k <- coef(fit_model)[1]
   alpha_rec <- coef(fit_model)[2]
-  data$k[data$id == ids[sub_idx]] <- k
-  data$alpha_rec[data$id == ids[sub_idx]] <- alpha_rec
+  data$k[data$mTurkCode == ids[sub_idx]] <- k
+  data$alpha_rec[data$mTurkCode == ids[sub_idx]] <- alpha_rec
   plot(vals_obj, vals, main = c(paste(as.character(ids[sub_idx]),'recover'), paste('k=', round(k,3), '; alpha=', round(alpha_rec,3))))
   lines(seq(0,25,0.1), k*seq(0,25,0.1)^alpha_rec)
 }
