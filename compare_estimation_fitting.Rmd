@@ -3,6 +3,10 @@ title: "compare estimation with model-fitting"
 author: ruonanjia
 ---
 
+```{r}
+rm(list = ls())
+```
+
 # Load package
 ```{r}
 library(tidyverse)
@@ -617,7 +621,7 @@ length(exclude) # 82
 
 ```{r}
 estimate <- estimate[!is.element(estimate$mTurkCode,exclude),]
-estimate$rating <- as.numeric(estimate$rating)
+estimate$rating <- as.numeric(as.character(estimate$rating))
 ```
 
 
@@ -674,6 +678,15 @@ ggplot(estimate[!is.na(estimate$rating_norm),], aes(x = mon_level, y = rating_no
   theme(legend.position = "none")
 ```
 
+```{r}
+alpha_value <- 0.1
+ggplot(estimate, aes(x = mon_level, y = rating, color = mTurkCode)) +
+  geom_point(size = 0.5) + geom_line(size = 1, alpha = alpha_value) +
+  scale_color_viridis(discrete = TRUE, option = "A") +
+  theme(panel.background = element_rect(fill = "grey80")) +
+  ggtitle('Rating, Monetary') +
+  theme(legend.position = "none")
+```
 
 ## recover alpha from rating, and compare with the model-fitted alpha
 
