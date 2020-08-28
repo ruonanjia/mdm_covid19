@@ -1,8 +1,12 @@
 ---
 title: "R Notebook"
-output: html_notebook
 author: ruonanjia
 ---
+
+```{r}
+rm(list = ls())
+```
+
 
 Install packages
 ```{r}
@@ -33,9 +37,10 @@ library(ggpubr)
 library("PerformanceAnalytics") # for chart correlation
 library(usmap) # for plotting data us maps
 library(scales) # for muted() function
+library(tidyverse)
 ```
 
-load data
+# load data
 ```{r}
 # setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
 setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
@@ -56,12 +61,12 @@ save into spread sheet
 # write.csv(data.all,"data_all_444sub.csv", row.names = FALSE)
 ```
 
-Preprocess some data columns, run the following chunks before further analysis:
----
+# Preprocess some data columns, run the following chunks before further analysis:
+
 Separate young and old, compare with 60 yr
 ```{r}
 data.all$is.young <- 1
-data.all$is.young[data.all$age >= 60] = 0
+data.all$is.young[data.all$age >= 60] = 0 
 data.all$is.young <- as.factor(data.all$is.young)
 ```
 
@@ -72,9 +77,8 @@ data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
 data(zipcode)
 data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
 ```
-
 End of preprocessing
----
+
 
 take only the first response of the repeated subjects
 ```{r}
@@ -91,19 +95,102 @@ Look at column names
 colnames(data.all)
 ```
 
+# composite score for ambiguity attitude
 
-demographic block
+select
 ```{r}
-colnames(data.all)
-colnames(data.all)[c(155:164,166:171, 1)]
-t(header[1, c(155:164,166:171, 353)])
 
+# # change in total time of checking news per day (not sure if subtracting is proper because scale is not linear)
+# news_change <- as.numeric(as.character(data.all$ambig1_news_perday)) - as.numeric(as.character(data.all$ambig1_news_before))
+# 
+# news_change
+
+
+# tracking news
+ambig_score <- data.all %>% select(mTurkCode, 
+                                   # news
+                                   ambig1_news_perday, ambig1_news_before, ambig1_track_deaths,
+                                   # how well-informed
+                                   ambig1_gov_local, ambig1_you, ambig1_gov_national, ambig1_scientists, ambig1_health_worker, ambig1_economists, ambig1_family_friend,
+                                   # reaction
+                                   ambig1_react_nation, ambig1_react_state, ambig1_react_science, ambig1_react_worker, ambig1_react_econ, ambig1_react_you,
+                                   #health or economics
+                                   ambig2_health_impact, ambig2_economics,
+                                   # how likely will be infected
+                                   ambig3_you_infect, ambig3_family_infect
+                                   )
+
+```
+
+correct levels
+```{r}
+ambig_score$mTurkCode <- as.factor(as.character(ambig_score$mTurkCode))
+
+ambig_score$ambig1_news_perday <- as.integer(as.character(ambig_score$ambig1_news_perday))
+ambig_score$ambig1_news_before <- as.integer(as.character(ambig_score$ambig1_news_before))
+ambig_score$ambig1_track_deaths <- as.integer(as.character(ambig_score$ambig1_track_deaths))
+
+ambig_score$ambig1_gov_local <- as.integer(as.character(ambig_score$ambig1_gov_local))
+ambig_score$ambig1_you <- as.integer(as.character(ambig_score$ambig1_you))
+ambig_score$ambig1_gov_national <- as.integer(as.character(ambig_score$ambig1_gov_national))
+ambig_score$ambig1_scientists <- as.integer(as.character(ambig_score$ambig1_scientists))
+ambig_score$ambig1_health_worker <- as.integer(as.character(ambig_score$ambig1_health_worker))
+ambig_score$ambig1_economists <- as.integer(as.character(ambig_score$ambig1_economists))
+ambig_score$ambig1_family_friend <- as.integer(as.character(ambig_score$ambig1_family_friend))
+
+
+ambig_score$ambig1_react_nation <- as.integer(as.character(ambig_score$ambig1_react_nation))
+ambig_score$ambig1_react_state <- as.integer(as.character(ambig_score$ambig1_react_state))
+ambig_score$ambig1_react_science <- as.integer(as.character(ambig_score$ambig1_react_science))
+ambig_score$ambig1_react_worker <- as.integer(as.character(ambig_score$ambig1_react_worker))
+ambig_score$ambig1_react_econ <- as.integer(as.character(ambig_score$ambig1_react_econ))
+ambig_score$ambig1_react_you <- as.integer(as.character(ambig_score$ambig1_react_you))
+
+
+ambig_score$ambig2_health_impact <- as.integer(as.character(ambig_score$ambig2_health_impact))
+ambig_score$ambig2_economics <- as.integer(as.character(ambig_score$ambig2_economics))
+
+ambig_score$ambig3_you_infect <- as.integer(as.character(ambig_score$ambig3_you_infect))
+ambig_score$ambig3_family_infect <- as.integer(as.character(ambig_score$ambig3_family_infect))
+
+
+# # why the following does not work??
+# ambig_score %>% mutate_at(1, droplevels)
+# ambig_score %>% mutate_at(c("mTurkCode"), factor)
+# 
+# ambig_score %>% mutate_at(vars(matches("ambig1")), as.character)
+# ambig_score %>% mutate_at(vars(matches("ambig1")), as.ordered)
+# 
+# ambig_score$mTurkCode
+# information$ambig1_news_before
+# 
+# droplevels(ambig_score$mTurkCode)
+```
+
+sum up
+```{r}
+
+ambig_score$sum <- rowSums(ambig_score[ , 2:ncol(ambig_score)])
+
+ambig_score$sum
+
+```
+
+```{r}
+data.all$ambig1_track_deaths
+```
+
+
+# demographic block
+```{r}
+# colnames(data.all)
+# colnames(data.all)[c(155:164,166:171, 1)]
+# t(header[1, c(155:164,166:171, 353)])
 
 # age
 ggplot(data.all, aes(x=age)) +
   geom_histogram(position = "identity", bins = 20) +
   labs(x = "Age")
-
 
 #size by zip
 data.zipcode<-aggregate(data.frame(count=data.all$mTurkCode),list(zip=data.all$zipcode),length)
@@ -130,7 +217,7 @@ ggplot(geo,aes(longitude,latitude)) +
 ```
 
 
-behavioral correlation with age
+# behavioral correlation with age
 ```{r}
 ggplot(data.all[data.all$error.med<0.5,], aes(x=age, y=ambig_corr.med)) + 
   geom_point() +
@@ -149,14 +236,14 @@ ggplot(data.all[data.all$error.mon<0.5,], aes(x=age, y=risk.mon)) +
   xlab("Age") + ylab("model-free risk Monetary")
 ```
 
-ambiguity block
+# ambiguity block
 ```{r}
 colnames(data.all)
 ambig_col <- c(172:220)
 colnames(data.all)[ambig_col]
 ```
 
-News source
+## News source
 ```{r}
 # rank news source
 # ambig1_news_sources_1 - ambig1_news_sources_8_TEXT
@@ -169,7 +256,7 @@ hist(as.numeric(as.character(data.all$ambig1_news_perday)))
 
 ```
 
-Health impact vs. economics impact
+## Health impact vs. economics impact
 ```{r}
 # data.all$ambig2_health_impact
 # data.all$ambig2_economics
@@ -251,7 +338,7 @@ cor(data.all$risk.med[data.all$error.med<0.5], data.all$ambig_corr.med[data.all$
 
 ```
 
-How well informed 
+## How well informed 
 ```{r}
 colnames(data.all)[c(194, 183, 195:199,391)]
 
@@ -337,7 +424,7 @@ ggplot(my_data, aes(x=familyfriends, fill = is.young)) +
 
 ```
 
-How much reaction
+## How much reaction
 ```{r}
 colnames(data.all)[207:212]
 react <- data.all[, c(207:212, 391)]
@@ -439,7 +526,7 @@ ggplot(data.all[data.all$error.mon<0.5,], aes(x=ambig1_react_nation, y=risk.mon)
   rotate_x_text(20)
 ```
 
-Should consider health impact by state
+## Should consider health impact by state
 ```{r}
 data.all$ambig2_health_impact <- as.numeric(as.character(data.all$ambig2_health_impact))
 
@@ -469,7 +556,7 @@ plot_usmap(data=geo_state, regions="states",values="health_impact") +
 
 ```
 
-Should consider economic impact by state
+## Should consider economic impact by state
 ```{r}
 
 data.all$ambig2_economics <- as.numeric(as.character(data.all$ambig2_economics))
@@ -501,7 +588,7 @@ plot_usmap(data=geo_state, regions="states",values="economic_impact") +
 
 ```
 
-Health - economic impact
+## Health - economic impact
 ```{r}
 data.all$ambig2_economics <- as.numeric(as.character(data.all$ambig2_economics))
 data.all$ambig2_health_impact <- as.numeric(as.character(data.all$ambig2_health_impact))
@@ -533,7 +620,7 @@ plot_usmap(data=geo_state, regions="states",values="health_economic") +
 
 ```
 
-How well-informed is the local government
+## How well-informed is the local government
 ```{r}
 
 data.all$ambig1_gov_local <- as.numeric(as.character(data.all$ambig1_gov_local))
@@ -570,7 +657,7 @@ plot_usmap(data=geo_state, regions="states",values="informed") +
 ```
 
 
-How appropriate is the local government reaction by state
+## How appropriate is the local government reaction by state
 ```{r}
 
 data.all$ambig1_react_state <- as.numeric(as.character(data.all$ambig1_react_state))
@@ -603,7 +690,7 @@ plot_usmap(data=geo_state, regions="states",values="react") +
 
 ```
 
-Anxiety level by state
+# Anxiety level by state
 ```{r}
 data.all$anx_feelingnow <- as.numeric(as.character(data.all$anx_feelingnow))
 
@@ -633,7 +720,7 @@ plot_usmap(data=geo_state, regions="states",values="anx") +
 
 ```
 
-Count of participants by state
+# Count of participants by state
 ```{r}
 # location of county by zipcode
 data.zipcode<-aggregate(data.frame(count=data.all$mTurkCode),list(zip=data.all$zipcode),length)
@@ -697,7 +784,7 @@ ggplot(us_states) +
 
 ```
 
-Anxiety, distribution
+# Anxiety, distribution
 ```{r}
 colnames(data.all)[309:317]
 
@@ -773,7 +860,7 @@ ggplot(data.all[data.all$error.mon<0.5,], aes(x=anx_feelingnow, y=risk.mon)) +
 ```
 
 
-risk exposure block
+# risk exposure block
 ```{r}
 data.all$Q1027
 # those who themselves were infected with COVID-19
