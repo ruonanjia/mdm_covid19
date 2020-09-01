@@ -275,6 +275,34 @@ ggplot(ambig_score, aes(x=ambig_score)) +
   geom_histogram()
 ```
 
+## ambiguity score on map
+```{r}
+# location of county by zipcode
+data.zipcode<-aggregate(
+  data.frame(ambig_score=data.all$ambig_score),list(zip=data.all$zipcode),
+  mean,
+  na.action=na.omit)
+
+geo<- merge(data.zipcode, zipcode, by='zip')
+
+# location of state by zipcodes
+state_all <- unique(geo$state)
+geo_state <- data.frame(state = state_all)
+
+state_match <- match(geo$state, state_all)
+for (idx in 1:length(state_all)) {
+  geo_state$ambig_score[idx] <- mean(geo$ambig_score[geo$state==state_all[idx]],na.rm=TRUE)
+}
+
+# plot
+plot_usmap(data=geo_state, regions="states",values="ambig_score") +
+  # scale_fill_gradient2(limits=c(-1,3),midpoint=0,low=muted("blue"),high=muted("red")) +
+  ggtitle("Ambiguity Composite Score") +
+  labs(fill = "More Ambiguous (Lighter) \n~ \nLess Ambiguous (Darker)") +
+  theme(legend.position = "right")
+```
+
+
 # Composite ambiguity score and other measures
 
 combine table
@@ -387,6 +415,50 @@ ggplot(data.all[mask_med,], aes(x=risk.med, y=ambig_corr.med, color=is.young)) +
   geom_point()+
   geom_smooth(method="lm")
 ```
+
+# Cluster of ambiguity composite score
+```{r}
+colnames(ambig_score) 
+
+# news, well_informed, current_situ, infect
+# total: ambig_score
+
+colnames(data.all)
+```
+
+mask of subjects inclusion
+```{r}
+mask_med <- data.all$error.med < 0.5 
+mask_mon <- data.all$error.mon < 0.5
+
+mask_med_young <- data.all$error.med < 0.5 & data.all$is.young == 1  
+mask_mon_young <- data.all$error.mon < 0.5 & data.all$is.young == 1
+
+mask_med_old <- data.all$error.med < 0.5 & data.all$is.young == 0
+mask_mon_old <- data.all$error.mon < 0.5 & data.all$is.young == 0
+```
+
+```{r}
+# monetary
+chart.Correlation(data.all[mask_mon, c(355,356,407:411)])
+
+# medical
+chart.Correlation(data.all[mask_med, c(357,358,407:411)])
+
+# monetary, young
+chart.Correlation(data.all[mask_mon_young, c(355,356,407:411)])
+
+# medical, young
+chart.Correlation(data.all[mask_med_young, c(357,358,407:411)])
+
+# monetary, old
+chart.Correlation(data.all[mask_mon_old, c(355,356,407:411)])
+
+# medical, old
+chart.Correlation(data.all[mask_med_old, c(357,358,407:411)])
+
+```
+
 
 # demographic block
 ```{r}
