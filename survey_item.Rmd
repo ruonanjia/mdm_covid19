@@ -275,6 +275,118 @@ ggplot(ambig_score, aes(x=ambig_score)) +
   geom_histogram()
 ```
 
+# Composite ambiguity score and other measures
+
+combine table
+```{r}
+# colnames(ambig_score)
+ambig_score_small <- ambig_score[,c(1,16:20)]
+
+# nrow(ambig_score_small)
+
+data.all <- merge(data.all, ambig_score, by="mTurkCode")
+```
+
+```{r}
+colnames(data.all)
+```
+
+## age
+```{r}
+ggplot(data.all, aes(x=age, y=ambig_score)) + 
+  geom_point()+
+  geom_smooth(method="lm")
+
+# separate young and old
+ggplot(data.all, aes(x=age, y=ambig_score, color=is.young)) + 
+  geom_point()+
+  geom_smooth(method="lm")
+```
+
+mask of subjects inclusion
+```{r}
+mask_med <- data.all$error.med < 0.5
+mask_mon <- data.all$error.mon < 0.5
+```
+
+
+## ambiguity attitude
+```{r}
+ggplot(data.all[mask_med,], aes(x=ambig_score, y=ambig_corr.med)) + 
+  geom_point()+
+  geom_smooth(method="lm")
+
+ggplot(data.all[mask_med,], aes(x=ambig_score, y=ambig_corr.med, color = is.young)) + 
+  geom_point()+
+  geom_smooth(method="lm")
+
+ggplot(data.all[mask_mon,], aes(x=ambig_score, y=ambig_corr.mon)) + 
+  geom_point()+
+  geom_smooth(method="lm")
+
+ggplot(data.all[mask_mon,], aes(x=ambig_score, y=ambig_corr.mon, color = is.young)) + 
+  geom_point()+
+  geom_smooth(method="lm")
+
+```
+
+## risk attitude
+```{r}
+ggplot(data.all[mask_med,], aes(x=ambig_score, y=risk.med)) + 
+  geom_point()+
+  geom_smooth(method="lm")
+
+ggplot(data.all[mask_med,], aes(x=ambig_score, y=risk.med, color = is.young)) + 
+  geom_point()+
+  geom_smooth(method="lm")
+
+ggplot(data.all[mask_mon,], aes(x=ambig_score, y=risk.mon)) + 
+  geom_point()+
+  geom_smooth(method="lm")
+
+ggplot(data.all[mask_mon,], aes(x=ambig_score, y=risk.mon, color = is.young)) + 
+  geom_point()+
+  geom_smooth(method="lm")
+
+```
+
+## correlation bewteen monetary and medical attitudes
+```{r}
+ggplot(data.all[mask_med & mask_mon,], aes(x=risk.mon, y=risk.med)) + 
+  geom_point()+
+  geom_smooth(method="lm")
+
+ggplot(data.all[mask_med & mask_mon,], aes(x=risk.mon, y=risk.med, color=is.young)) + 
+  geom_point()+
+  geom_smooth(method="lm")
+
+ggplot(data.all[mask_med & mask_mon,], aes(x=ambig_corr.mon, y=ambig_corr.med)) + 
+  geom_point()+
+  geom_smooth(method="lm")
+
+ggplot(data.all[mask_med & mask_mon,], aes(x=ambig_corr.mon, y=ambig_corr.med, color=is.young)) + 
+  geom_point()+
+  geom_smooth(method="lm")
+```
+
+## correlation bewteen risk and ambiguity attitudes
+```{r}
+ggplot(data.all[mask_mon,], aes(x=risk.mon, y=ambig_corr.mon)) + 
+  geom_point()+
+  geom_smooth(method="lm")
+
+ggplot(data.all[mask_mon,], aes(x=risk.mon, y=ambig_corr.mon, color=is.young)) + 
+  geom_point()+
+  geom_smooth(method="lm")
+
+ggplot(data.all[mask_med,], aes(x=risk.med, y=ambig_corr.med)) + 
+  geom_point()+
+  geom_smooth(method="lm")
+
+ggplot(data.all[mask_med,], aes(x=risk.med, y=ambig_corr.med, color=is.young)) + 
+  geom_point()+
+  geom_smooth(method="lm")
+```
 
 # demographic block
 ```{r}
