@@ -122,7 +122,7 @@ ambig_score <- data.all %>% select(mTurkCode,
 
 ```
 
-correct factor levels an turn into integer
+correct factor levels and turn into integer
 ```{r}
 ambig_score$mTurkCode <- as.factor(as.character(ambig_score$mTurkCode))
 
@@ -246,8 +246,8 @@ View(ambig_score)
 ```{r}
 
 # some columns have NA, average clusters before summing up
-colnames(ambig_score)
-colnames(ambig_score)[5:11]
+# colnames(ambig_score)
+# colnames(ambig_score)[5:11]
 
 # change in news consumption frequency
 ambig_score$news <- ambig_score$ambig1_news_perday - ambig_score$ambig1_news_before
@@ -261,12 +261,12 @@ ambig_score$current_situ <- rowMeans(ambig_score[ , 12:13], na.rm = TRUE)
 # average of likely to be infected
 ambig_score$infect <- rowMeans(ambig_score[,14:15], na.rm = TRUE)
 
-ambig_score
+# ambig_score
 
 # average
 ambig_score$ambig_score <- rowMeans(ambig_score[ , 16:19], na.rm = TRUE)
 
-ambig_score$ambig_score
+# ambig_score$ambig_score
 ```
 
 ## distribution of ambiguity score
@@ -456,6 +456,184 @@ chart.Correlation(data.all[mask_mon_old, c(355,356,407:411)])
 
 # medical, old
 chart.Correlation(data.all[mask_med_old, c(357,358,407:411)])
+
+```
+
+# PCA of ambiguity score
+
+## select items and preprocess
+```{r}
+ambig_pca <- data.all %>% select(mTurkCode, 
+                                   # news
+                                   ambig1_news_perday, ambig1_news_before, ambig1_track_deaths,
+                                   # how well-informed
+                                   ambig1_gov_local, ambig1_you, ambig1_gov_national, ambig1_scientists, ambig1_health_worker, ambig1_economists, ambig1_family_friend,
+                                   # reaction
+                                   ambig1_react_nation, ambig1_react_state, ambig1_react_science, ambig1_react_worker, ambig1_react_econ, ambig1_react_you,
+                                   #health or economics
+                                   ambig2_health_impact, ambig2_economics,
+                                   # current situation
+                                   ambig3_current_covi1, ambig3_current_covi2,
+                                   # how likely will be infected
+                                   ambig3_you_infect, ambig3_family_infect,
+                                   # how much is your daily life affected
+                                   ambig3_daily_affect,
+                                   # how would you feel if you got infected
+                                   ambig3_feel_infect
+                                   )
+```
+
+```{r}
+colnames(ambig_pca)
+```
+
+
+correct factor levels and turn into integer
+```{r}
+ambig_pca$mTurkCode <- as.factor(as.character(ambig_pca$mTurkCode))
+
+ambig_pca$ambig1_news_perday <- as.integer(as.character(ambig_pca$ambig1_news_perday))
+ambig_pca$ambig1_news_before <- as.integer(as.character(ambig_pca$ambig1_news_before))
+ambig_pca$ambig1_track_deaths <- as.integer(as.character(ambig_pca$ambig1_track_deaths))
+
+ambig_pca$ambig1_gov_local <- as.integer(as.character(ambig_pca$ambig1_gov_local))
+ambig_pca$ambig1_you <- as.integer(as.character(ambig_pca$ambig1_you))
+ambig_pca$ambig1_gov_national <- as.integer(as.character(ambig_pca$ambig1_gov_national))
+ambig_pca$ambig1_scientists <- as.integer(as.character(ambig_pca$ambig1_scientists))
+ambig_pca$ambig1_health_worker <- as.integer(as.character(ambig_pca$ambig1_health_worker))
+ambig_pca$ambig1_economists <- as.integer(as.character(ambig_pca$ambig1_economists))
+ambig_pca$ambig1_family_friend <- as.integer(as.character(ambig_pca$ambig1_family_friend))
+
+
+ambig_pca$ambig1_react_nation <- as.integer(as.character(ambig_pca$ambig1_react_nation))
+ambig_pca$ambig1_react_state <- as.integer(as.character(ambig_pca$ambig1_react_state))
+ambig_pca$ambig1_react_science <- as.integer(as.character(ambig_pca$ambig1_react_science))
+ambig_pca$ambig1_react_worker <- as.integer(as.character(ambig_pca$ambig1_react_worker))
+ambig_pca$ambig1_react_econ <- as.integer(as.character(ambig_pca$ambig1_react_econ))
+ambig_pca$ambig1_react_you <- as.integer(as.character(ambig_pca$ambig1_react_you))
+
+
+ambig_pca$ambig2_health_impact <- as.integer(as.character(ambig_pca$ambig2_health_impact))
+ambig_pca$ambig2_economics <- as.integer(as.character(ambig_pca$ambig2_economics))
+
+ambig_pca$ambig3_current_covi1 <- as.integer(as.character(ambig_pca$ambig3_current_covi1))
+ambig_pca$ambig3_current_covi2 <- as.integer(as.character(ambig_pca$ambig3_current_covi2))
+
+ambig_pca$ambig3_you_infect <- as.integer(as.character(ambig_pca$ambig3_you_infect))
+ambig_pca$ambig3_family_infect <- as.integer(as.character(ambig_pca$ambig3_family_infect))
+
+ambig_pca$ambig3_daily_affect <- as.integer(as.character(ambig_pca$ambig3_daily_affect))
+ambig_pca$ambig3_feel_infect <- as.integer(as.character(ambig_pca$ambig3_feel_infect))
+
+# # why the following does not work??
+# ambig_score %>% mutate_at(1, droplevels)
+# ambig_score %>% mutate_at(c("mTurkCode"), factor)
+# 
+# ambig_score %>% mutate_at(vars(matches("ambig1")), as.character)
+# ambig_score %>% mutate_at(vars(matches("ambig1")), as.ordered)
+# 
+# ambig_score$mTurkCode
+# information$ambig1_news_before
+# 
+# droplevels(ambig_score$mTurkCode)
+```
+
+
+```{r}
+ambig_pca
+```
+
+```{r}
+colnames(ambig_pca)
+```
+
+
+## correct scale
+Inspect each item, make sure which scales are consistent
+e.g, smaller number indicate less information (ambiguity), or something worse
+```{r}
+# 1-6 nonlinear duraion, 1 (less than 15 min) ~ 6 (over 5 hours)
+ambig_pca$ambig1_news_perday
+ambig_pca$ambig1_news_before
+
+# 1-7 nonlinear duration, 1(Several times a day) ~ 7 (rarely or never)
+ambig_pca$ambig1_track_deaths
+
+# 1-7 likert scale, 1 (very-well informed) ~ 7(Very uninformed)
+ambig_pca$ambig1_gov_local
+ambig_pca$ambig1_you
+ambig_pca$ambig1_gov_national
+ambig_pca$ambig1_scientists
+ambig_pca$ambig1_health_worker
+ambig_pca$ambig1_economists
+ambig_pca$ambig1_family_friend
+
+# 1-5 likert scale, 1 (completely overacting) ~ 5 (Completely insufficient)
+ambig_pca$ambig1_react_nation
+ambig_pca$ambig1_react_state
+ambig_pca$ambig1_react_science
+ambig_pca$ambig1_react_worker
+ambig_pca$ambig1_react_econ
+ambig_pca$ambig1_react_you
+
+# 1-7 likert scale, 1(Extremely) ~ 7(not at all)
+ambig_pca$ambig2_health_impact
+ambig_pca$ambig2_economics
+
+# 1-7 likert scale, 1(Extremely severe) ~ 7 (not at all severe)
+ambig_pca$ambig3_current_covi1
+ambig_pca$ambig3_current_covi2
+
+# 1-7 likert scale, 2(extremely likely) ~ 8 (extremely unlikely)
+# 1: already confirmed infection by test, 9: don't know 
+ambig_pca$ambig3_you_infect
+ambig_pca$ambig3_family_infect
+
+# 1-7 likert scale, 1(extremely) ~ 7(not at all)
+ambig_pca$ambig3_daily_affect
+
+# 1~5 scale, 1(Extremely unwell) ~ 5(not at all unwell)
+ambig_pca$ambig3_feel_infect
+```
+
+correct scale
+larger number should indicate less information (more ambiguity)
+```{r}
+# 1-6, news
+ambig_score$ambig1_news_perday <- 7-ambig_score$ambig1_news_perday
+ambig_score$ambig1_news_before <- 7-ambig_score$ambig1_news_before
+
+# 1-7, current situation
+ambig_score$ambig3_current_covi1 <- 8-ambig_score$ambig3_current_covi1
+ambig_score$ambig3_current_covi2 <- 8-ambig_score$ambig3_current_covi2
+
+# 2-8, compare with 5 (most uncertain)
+ambig_score$ambig3_you_infect[ambig_score$ambig3_you_infect == 9 | ambig_score$ambig3_you_infect == 1] <- NA 
+ambig_score$ambig3_family_infect[ambig_score$ambig3_family_infect == 9 | ambig_score$ambig3_family_infect == 1] <- NA 
+
+ambig_score$ambig3_you_infect[ambig_score$ambig3_you_infect <= 5 & !is.na(ambig_score$ambig3_you_infect)] <- ambig_score$ambig3_you_infect[ambig_score$ambig3_you_infect <= 5 & !is.na(ambig_score$ambig3_you_infect)] - 1
+
+ambig_score$ambig3_you_infect[ambig_score$ambig3_you_infect > 5 & !is.na(ambig_score$ambig3_you_infect)] <- 9-ambig_score$ambig3_you_infect[ambig_score$ambig3_you_infect > 5 & !is.na(ambig_score$ambig3_you_infect)]
+
+ambig_score$ambig3_family_infect[ambig_score$ambig3_family_infect <= 5 & !is.na(ambig_score$ambig3_family_infect)] <- ambig_score$ambig3_family_infect[ambig_score$ambig3_family_infect <= 5 & !is.na(ambig_score$ambig3_family_infect)] - 1
+
+ambig_score$ambig3_family_infect[ambig_score$ambig3_family_infect > 5 & !is.na(ambig_score$ambig3_family_infect)] <- 9-ambig_score$ambig3_family_infect[ambig_score$ambig3_family_infect > 5 & !is.na(ambig_score$ambig3_family_infect)]
+
+# 1-7 likert scale, 1(extremely) ~ 7(not at all)
+ambig_pca$ambig3_daily_affect <- 8 - ambig_pca$ambig3_daily_affect
+
+# 1~5 scale, 1(Extremely unwell) ~ 5(not at all unwell)
+ambig_pca$ambig3_feel_infect <- 6 - ambig_pca$ambig3_feel_infect
+
+```
+
+```{r}
+ambig_pca
+View(ambig_pca)
+```
+
+## standardize for PCA
+```{r}
 
 ```
 
