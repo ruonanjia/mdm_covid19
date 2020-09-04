@@ -632,11 +632,264 @@ ambig_pca
 View(ambig_pca)
 ```
 
-## standardize for PCA
+## Select data for PCA
 ```{r}
+# some items have missing score 
+# including:
+# measures for state questions
+# how likely you or family will be infected
+# how you would feel if infected
+
+# check how many are missing
+sum(is.na(ambig_pca$ambig1_gov_local)) #10
+sum(is.na(ambig_pca$ambig1_react_state)) #11
+sum(is.na(ambig_pca$ambig3_current_covi2)) #11
+sum(is.na(ambig_pca$ambig3_you_infect)) #7
+sum(is.na(ambig_pca$ambig3_family_infect)) #16
+sum(is.na(ambig_pca$ambig3_feel_infect)) #3
 
 ```
 
+```{r}
+# select items and reorganize order, for the convenience of interpreting PCA
+
+# no state questions
+array2pca_raw <- ambig_pca %>% select(# news
+                                   ambig1_news_perday, ambig1_news_before, ambig1_track_deaths,
+                                   # how well-informed
+                                   ambig1_you, ambig1_gov_national, ambig1_scientists, ambig1_health_worker, ambig1_economists, ambig1_family_friend,
+                                   # reaction
+                                   ambig1_react_nation, ambig1_react_science, ambig1_react_worker, ambig1_react_econ, ambig1_react_you,
+                                   #health or economics
+                                   ambig2_health_impact, ambig2_economics,
+                                   # current situation
+                                   ambig3_current_covi1,
+                                   # how likely will be infected
+                                   ambig3_you_infect, ambig3_family_infect,
+                                   # how much is your daily life affected
+                                   ambig3_daily_affect,
+                                   # how would you feel if you got infected
+                                   ambig3_feel_infect
+                                   )
+```
+
+get rid of na
+```{r}
+nrow(array2pca_raw)
+
+array2pca <- array2pca[!is.na(rowSums(array2pca_raw)),]
+
+# number of subjects with complete data 
+nrow(array2pca) # 425
+
+ncol(array2pca) # 21 items
+```
+
+## z score
+```{r}
+zscored <- scale(array2pca, center = TRUE, scale = TRUE)
+
+View(zscored)
+```
+
+## conduct PCA
+There are two functions to use, princomp and prcomp
+```{r}
+# pcaresult <- princomp(zscored)
+pcaresult <- prcomp(zscored, retx = TRUE, center = TRUE, scale. = TRUE)
+summary(pcaresult)
+```
+
+Plot variance explained
+```{r}
+# calculate variace from eigenvalues
+eigs <- pcaresult$sdev^2
+var_explain <- eigs/sum(eigs)
+plot(var_explain, type = "b")
+comp_id = c(1:ncol(array2pca))
+var_plot <- data.frame(comp_id, var_explain)
+
+# plot variance explained
+ggplot(var_plot, aes(x = comp_id, y = var_explain)) +
+  geom_point() + geom_line() +
+  scale_x_continuous(breaks = c(1:ncol(array2pca))) +
+  theme_classic()
+
+# plot cumulative variance
+for (i in c(1:nrow(var_plot))) {
+  var_plot$var_cumul[i] <- sum(var_plot$var_explain[1:i])
+}
+
+# plot cumulative variance explained
+ggplot(var_plot, aes(x = comp_id, y = var_cumul)) +
+  geom_point(size = 3) + geom_line() +
+  scale_x_continuous(breaks = c(1:ncol(array2pca))) +
+  theme_classic() +
+  theme(text = element_text(size=12), axis.line = element_line(size = 1),
+        axis.ticks = element_line(colour = "black", size = 1),
+        axis.text = element_text(colour = "black", size = 10)) +
+  labs(x="Number of components", y="Cumulative variance explained")
+
+# another way to plot eigenvalues
+plot(pcaresult)
+```
+
+Plot loadings
+```{r}
+# plot loadings
+pcaload <- pcaresult$rotation[,]
+# barplot(pcaload[,1], main="Component 1", ylab="Loadings", las=2)
+# barplot(pcaload[,2], main="Component 2", ylab="Loadings", las=2)
+# barplot(pcaload[,3], main="Component 3", ylab="Loadings", las=2)
+
+load_plot <- data.frame(comp_id, pcaload[,1], pcaload[,2], pcaload[,3])
+
+colnames(load_plot) <- c('comp_id', 'comp1', 'comp2', 'comp3')
+
+# bar plot of loadings
+ggplot(load_plot, aes(x = comp_id, y = comp1)) +
+  geom_bar(stat = "identity") +
+  scale_x_continuous(breaks = c(1:ncol(array2pca)), labels = rownames(load_plot)) +
+  scale_y_continuous(limits = c(0,0.4), breaks = seq(0,0.4,0.05)) +
+  theme_classic() +
+  theme(text = element_text(size=12), axis.line = element_line(size = 1),
+        axis.ticks = element_line(colour = "black", size = 1),
+        axis.text.x = element_text(angle = 90),
+        axis.text = element_text(colour = "black", size = 10)) +
+  labs(y="Loadings", x="") +
+  ggtitle('Component1')
+
+ggplot(load_plot, aes(x = comp_id, y = comp2)) +
+  geom_bar(stat = "identity") +
+  scale_x_continuous(breaks = c(1:ncol(array2pca)), labels = rownames(load_plot)) +
+  scale_y_continuous(limits = c(-0.4,0.6), breaks = seq(-0.4,0.6,0.2)) +
+  theme_classic() +
+  theme(text = element_text(size=12), axis.line = element_line(size = 1),
+        axis.ticks = element_line(colour = "black", size = 1),
+        axis.text.x = element_text(angle = 90),
+        axis.text = element_text(colour = "black", size = 10)) +
+  labs(y="Loadings", x="") +
+  ggtitle('Component2')
+
+ggplot(load_plot, aes(x = comp_id, y = comp3)) +
+  geom_bar(stat = "identity") +
+  scale_x_continuous(breaks = c(1:ncol(array2pca)), labels = rownames(load_plot)) +
+  # scale_y_continuous(limits = c(-0.4,1), breaks = seq(-0.4,0.85,0.2)) +
+  theme_classic() +
+  theme(text = element_text(size=12), axis.line = element_line(size = 1),
+        axis.ticks = element_line(colour = "black", size = 1),
+        axis.text.x = element_text(angle = 90),
+        axis.text = element_text(colour = "black", size = 10)) +
+  labs(y="Loadings", x="") +
+  ggtitle('Component3')
+```
+
+## Get rotated values (component scores), and plot on PC dimensions
+```{r}
+# rotated values
+score = pcaresult$x
+View(score)
+typeof(score)
+
+# change it to data frame
+score_tb <- as.data.frame.array(score)
+View(score_tb)
+score_tb$mTurkCode <- ambig_pca$mTurkCode[!is.na(rowSums(array2pca_raw))]
+score_tb$is.young <- data.all$is.young[!is.na(rowSums(array2pca_raw))]
+```
+
+Plot PCA components
+```{r}
+# plot PC distribution
+ggplot(score_tb, aes(x = PC1, color=is.young, fill=is.young)) +
+  geom_histogram(position = "identity", alpha = 0.5, size =1, bins = 25) +
+  # scale_color_manual(values = c("olivedrab","darkorange3","grey50")) +
+  # scale_fill_manual(values = c("olivedrab","darkorange3","grey50")) +
+  theme_classic() +
+  theme(text = element_text(size=12), axis.line = element_line(size = 1),
+        axis.ticks = element_line(colour = "black", size = 1),
+        axis.text = element_text(colour = "black", size = 10)) +
+  labs(x="PC1", y="Count of participant")
+  
+ggplot(score_tb, aes(x = PC2, color = is.young, fill = is.young)) +
+  geom_histogram(position = "identity", alpha = 0.5, size =1, bins = 25) +
+  # scale_color_manual(values = c("olivedrab","darkorange3","grey50")) +
+  # scale_fill_manual(values = c("olivedrab","darkorange3","grey50")) +
+  theme_classic() +
+  theme(text = element_text(size=12), axis.line = element_line(size = 1),
+        axis.ticks = element_line(colour = "black", size = 1),
+        axis.text = element_text(colour = "black", size = 10)) +
+  labs(x="PC2", y="Count of participant")
+
+ggplot(score_tb, aes(x = PC3, color = is.young, fill = is.young)) +
+  geom_histogram(position = "identity", alpha = 0.5, size =1, bins = 25) +
+  # scale_color_manual(values = c("olivedrab","darkorange3","grey50")) +
+  # scale_fill_manual(values = c("olivedrab","darkorange3","grey50")) +
+  theme_classic() +
+  theme(text = element_text(size=12), axis.line = element_line(size = 1),
+        axis.ticks = element_line(colour = "black", size = 1),
+        axis.text = element_text(colour = "black", size = 10)) +
+  labs(x="PC3", y="Count of participant")
+
+
+# plot participants in PC space
+ggplot(score_tb, aes(x=PC1, y=PC2, color=is.young)) +
+  geom_point(size = 3) +
+  # scale_color_manual(values = c("olivedrab","darkorange3","grey50")) +
+  # scale_fill_manual(values = c("olivedrab","darkorange3","grey50")) +
+  # theme_classic() +
+  theme(text = element_text(size=12),
+        axis.ticks = element_line(colour = "black", size = 1),
+        axis.text = element_text(colour = "black", size = 10))
+
+ggplot(score_tb, aes(x=PC2, y=PC3, color=is.young)) +
+  geom_point(size = 3) +
+  # scale_color_manual(values = c("olivedrab","darkorange3","grey50")) +
+  # scale_fill_manual(values = c("olivedrab","darkorange3","grey50")) +
+  # theme_classic() +
+  theme(text = element_text(size=12),
+        axis.ticks = element_line(colour = "black", size = 1),
+        axis.text = element_text(colour = "black", size = 10))
+
+ggplot(score_tb, aes(x=PC4, y=PC3, color=is.young)) +
+  geom_point(size = 3) +
+  # scale_color_manual(values = c("olivedrab","darkorange3","grey50")) +
+  # scale_fill_manual(values = c("olivedrab","darkorange3","grey50")) +
+  # theme_classic() +
+  theme(text = element_text(size=12),
+        axis.ticks = element_line(colour = "black", size = 1),
+        axis.text = element_text(colour = "black", size = 10))
+```
+
+# ambiguity items PCA score correlation with uncertainty attitude
+```{r}
+data_pca <- merge(data.all, score_tb, by = intersect(colnames(data.all), colnames(score_tb)))
+View(data_pca)
+```
+
+subject selection mask
+```{r}
+mask_med <- data_pca$error.med < 0.5
+mask_mon <- data_pca$error.mon < 0.5
+```
+
+
+## general code
+Need to specify which component and which uncertainty attitude
+```{r}
+pc2plot = 'PC2'
+att2plot = 'ambig_corr.med'
+
+ggplot(data_pca[mask_med,], aes(x=eval(parse(text = pc2plot)), y=eval(parse(text = att2plot)))) + 
+  geom_point()+
+  geom_smooth(method="lm") + 
+  xlab(pc2plot) + ylab(att2plot)
+
+ggplot(data_pca[mask_med,], aes(x=eval(parse(text = pc2plot)), y=eval(parse(text = att2plot)), color = is.young)) + 
+  geom_point()+
+  geom_smooth(method="lm") + 
+  xlab(pc2plot) + ylab(att2plot)
+```
 
 # demographic block
 ```{r}
