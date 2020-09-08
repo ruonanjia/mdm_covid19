@@ -741,12 +741,15 @@ pcaload <- pcaresult$rotation[,]
 # barplot(pcaload[,2], main="Component 2", ylab="Loadings", las=2)
 # barplot(pcaload[,3], main="Component 3", ylab="Loadings", las=2)
 
-load_plot <- data.frame(comp_id, pcaload[,1], pcaload[,2], pcaload[,3])
+# View(pcaload)
+# load_plot <- data.frame(comp_id, pcaload[,1], pcaload[,2], pcaload[,3])
+load_plot <- data.frame(pcaload)
+load_plot$comp_id = comp_id
 
-colnames(load_plot) <- c('comp_id', 'comp1', 'comp2', 'comp3')
+# colnames(load_plot) <- c('comp_id', 'comp1', 'comp2', 'comp3')
 
 # bar plot of loadings
-ggplot(load_plot, aes(x = comp_id, y = comp1)) +
+ggplot(load_plot, aes(x = comp_id, y = PC1)) +
   geom_bar(stat = "identity") +
   scale_x_continuous(breaks = c(1:ncol(array2pca)), labels = rownames(load_plot)) +
   scale_y_continuous(limits = c(0,0.4), breaks = seq(0,0.4,0.05)) +
@@ -758,7 +761,7 @@ ggplot(load_plot, aes(x = comp_id, y = comp1)) +
   labs(y="Loadings", x="") +
   ggtitle('Component1')
 
-ggplot(load_plot, aes(x = comp_id, y = comp2)) +
+ggplot(load_plot, aes(x = comp_id, y = PC2)) +
   geom_bar(stat = "identity") +
   scale_x_continuous(breaks = c(1:ncol(array2pca)), labels = rownames(load_plot)) +
   scale_y_continuous(limits = c(-0.4,0.6), breaks = seq(-0.4,0.6,0.2)) +
@@ -770,7 +773,7 @@ ggplot(load_plot, aes(x = comp_id, y = comp2)) +
   labs(y="Loadings", x="") +
   ggtitle('Component2')
 
-ggplot(load_plot, aes(x = comp_id, y = comp3)) +
+ggplot(load_plot, aes(x = comp_id, y = PC3)) +
   geom_bar(stat = "identity") +
   scale_x_continuous(breaks = c(1:ncol(array2pca)), labels = rownames(load_plot)) +
   # scale_y_continuous(limits = c(-0.4,1), breaks = seq(-0.4,0.85,0.2)) +
@@ -781,6 +784,25 @@ ggplot(load_plot, aes(x = comp_id, y = comp3)) +
         axis.text = element_text(colour = "black", size = 10)) +
   labs(y="Loadings", x="") +
   ggtitle('Component3')
+
+```
+
+general code
+```{r}
+comp_name = 'PC20'
+ggplot(load_plot, aes(x = comp_id, y = eval(parse(text=comp_name)))) +
+  geom_bar(stat = "identity") +
+  scale_x_continuous(breaks = c(1:ncol(array2pca)), labels = rownames(load_plot)) +
+  # scale_y_continuous(limits = c(-0.4,1), breaks = seq(-0.4,0.85,0.2)) +
+  theme_classic() +
+  theme(text = element_text(size=12), axis.line = element_line(size = 1),
+        axis.ticks = element_line(colour = "black", size = 1),
+        axis.text.x = element_text(angle = 90),
+        axis.text = element_text(colour = "black", size = 10)) +
+  labs(y="Loadings", x="") +
+  ggtitle(comp_name)
+
+
 ```
 
 ## Get rotated values (component scores), and plot on PC dimensions
@@ -868,27 +890,35 @@ View(data_pca)
 
 subject selection mask
 ```{r}
-mask_med <- data_pca$error.med < 0.5
-mask_mon <- data_pca$error.mon < 0.5
+# mask_med <- data_pca$error.med < 0.5
+# mask_mon <- data_pca$error.mon < 0.5
+
+mask_med <- data_pca$error.med == 0
+mask_mon <- data_pca$error.mon == 0
 ```
 
 
-## general code
-Need to specify which component and which uncertainty attitude
+## general code 
+Need to specify which component, which uncertainty attitude, and which domain
 ```{r}
-pc2plot = 'PC3'
-att2plot = 'ambig_corr.mon'
+pc2plot = 'PC21'
+att2plot = 'ambig_corr.med'
+mask = mask_med
 
 ggplot(data_pca[mask_med,], aes(x=eval(parse(text = pc2plot)), y=eval(parse(text = att2plot)))) + 
   geom_point()+
   geom_smooth(method="lm") + 
   xlab(pc2plot) + ylab(att2plot)
 
+cor.test(~eval(parse(text = pc2plot)) + eval(parse(text = att2plot)),
+         data=data_pca[mask_med,], method="pearson")
+
 ggplot(data_pca[mask_med,], aes(x=eval(parse(text = pc2plot)), y=eval(parse(text = att2plot)), color = is.young)) + 
   geom_point()+
   geom_smooth(method="lm") + 
   xlab(pc2plot) + ylab(att2plot)
 ```
+
 
 # demographic block
 ```{r}
