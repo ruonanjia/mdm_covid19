@@ -139,17 +139,6 @@ ambig_score$ambig1_economists <- as.integer(as.character(ambig_score$ambig1_econ
 ambig_score$ambig1_family_friend <- as.integer(as.character(ambig_score$ambig1_family_friend))
 
 
-# ambig_score$ambig1_react_nation <- as.integer(as.character(ambig_score$ambig1_react_nation))
-# ambig_score$ambig1_react_state <- as.integer(as.character(ambig_score$ambig1_react_state))
-# ambig_score$ambig1_react_science <- as.integer(as.character(ambig_score$ambig1_react_science))
-# ambig_score$ambig1_react_worker <- as.integer(as.character(ambig_score$ambig1_react_worker))
-# ambig_score$ambig1_react_econ <- as.integer(as.character(ambig_score$ambig1_react_econ))
-# ambig_score$ambig1_react_you <- as.integer(as.character(ambig_score$ambig1_react_you))
-
-
-# ambig_score$ambig2_health_impact <- as.integer(as.character(ambig_score$ambig2_health_impact))
-# ambig_score$ambig2_economics <- as.integer(as.character(ambig_score$ambig2_economics))
-
 ambig_score$ambig3_current_covi1 <- as.integer(as.character(ambig_score$ambig3_current_covi1))
 ambig_score$ambig3_current_covi2 <- as.integer(as.character(ambig_score$ambig3_current_covi2))
 
@@ -273,6 +262,16 @@ ambig_score$ambig_score <- rowMeans(ambig_score[ , 16:19], na.rm = TRUE)
 ```{r}
 ggplot(ambig_score, aes(x=ambig_score)) +
   geom_histogram()
+```
+
+```{r}
+nrow(ambig_score)
+ambig_score$is.young <- data.all$is.young
+ggplot(ambig_score, aes(x=ambig_score, color=is.young, fill=is.young)) +
+  geom_histogram(alpha=0.5, position="stack")
+
+ggplot(ambig_score, aes(x=ambig_score, color=is.young, fill=is.young)) +
+  geom_histogram(alpha=0.5, position="identity")
 ```
 
 ## ambiguity score on map
@@ -600,24 +599,24 @@ correct scale
 larger number should indicate less information (more ambiguity)
 ```{r}
 # 1-6, news
-ambig_score$ambig1_news_perday <- 7-ambig_score$ambig1_news_perday
-ambig_score$ambig1_news_before <- 7-ambig_score$ambig1_news_before
+ambig_pca$ambig1_news_perday <- 7-ambig_pca$ambig1_news_perday
+ambig_pca$ambig1_news_before <- 7-ambig_pca$ambig1_news_before
 
 # 1-7, current situation
-ambig_score$ambig3_current_covi1 <- 8-ambig_score$ambig3_current_covi1
-ambig_score$ambig3_current_covi2 <- 8-ambig_score$ambig3_current_covi2
+ambig_pca$ambig3_current_covi1 <- 8-ambig_pca$ambig3_current_covi1
+ambig_pca$ambig3_current_covi2 <- 8-ambig_pca$ambig3_current_covi2
 
 # 2-8, compare with 5 (most uncertain)
-ambig_score$ambig3_you_infect[ambig_score$ambig3_you_infect == 9 | ambig_score$ambig3_you_infect == 1] <- NA 
-ambig_score$ambig3_family_infect[ambig_score$ambig3_family_infect == 9 | ambig_score$ambig3_family_infect == 1] <- NA 
+ambig_pca$ambig3_you_infect[ambig_pca$ambig3_you_infect == 9 | ambig_pca$ambig3_you_infect == 1] <- NA 
+ambig_pca$ambig3_family_infect[ambig_pca$ambig3_family_infect == 9 | ambig_pca$ambig3_family_infect == 1] <- NA 
 
-ambig_score$ambig3_you_infect[ambig_score$ambig3_you_infect <= 5 & !is.na(ambig_score$ambig3_you_infect)] <- ambig_score$ambig3_you_infect[ambig_score$ambig3_you_infect <= 5 & !is.na(ambig_score$ambig3_you_infect)] - 1
+ambig_pca$ambig3_you_infect[ambig_pca$ambig3_you_infect <= 5 & !is.na(ambig_pca$ambig3_you_infect)] <- ambig_pca$ambig3_you_infect[ambig_pca$ambig3_you_infect <= 5 & !is.na(ambig_pca$ambig3_you_infect)] - 1
 
-ambig_score$ambig3_you_infect[ambig_score$ambig3_you_infect > 5 & !is.na(ambig_score$ambig3_you_infect)] <- 9-ambig_score$ambig3_you_infect[ambig_score$ambig3_you_infect > 5 & !is.na(ambig_score$ambig3_you_infect)]
+ambig_pca$ambig3_you_infect[ambig_pca$ambig3_you_infect > 5 & !is.na(ambig_pca$ambig3_you_infect)] <- 9-ambig_pca$ambig3_you_infect[ambig_pca$ambig3_you_infect > 5 & !is.na(ambig_pca$ambig3_you_infect)]
 
-ambig_score$ambig3_family_infect[ambig_score$ambig3_family_infect <= 5 & !is.na(ambig_score$ambig3_family_infect)] <- ambig_score$ambig3_family_infect[ambig_score$ambig3_family_infect <= 5 & !is.na(ambig_score$ambig3_family_infect)] - 1
+ambig_pca$ambig3_family_infect[ambig_pca$ambig3_family_infect <= 5 & !is.na(ambig_pca$ambig3_family_infect)] <- ambig_pca$ambig3_family_infect[ambig_pca$ambig3_family_infect <= 5 & !is.na(ambig_pca$ambig3_family_infect)] - 1
 
-ambig_score$ambig3_family_infect[ambig_score$ambig3_family_infect > 5 & !is.na(ambig_score$ambig3_family_infect)] <- 9-ambig_score$ambig3_family_infect[ambig_score$ambig3_family_infect > 5 & !is.na(ambig_score$ambig3_family_infect)]
+ambig_pca$ambig3_family_infect[ambig_pca$ambig3_family_infect > 5 & !is.na(ambig_pca$ambig3_family_infect)] <- 9-ambig_pca$ambig3_family_infect[ambig_pca$ambig3_family_infect > 5 & !is.na(ambig_pca$ambig3_family_infect)]
 
 # 1-7 likert scale, 1(extremely) ~ 7(not at all)
 ambig_pca$ambig3_daily_affect <- 8 - ambig_pca$ambig3_daily_affect
@@ -677,12 +676,12 @@ get rid of na
 ```{r}
 nrow(array2pca_raw)
 
-array2pca <- array2pca[!is.na(rowSums(array2pca_raw)),]
+array2pca <- array2pca_raw[!is.na(rowSums(array2pca_raw)),]
 
 # number of subjects with complete data 
-nrow(array2pca) # 425
-
+nrow(array2pca) # 417
 ncol(array2pca) # 21 items
+
 ```
 
 ## z score
@@ -877,8 +876,8 @@ mask_mon <- data_pca$error.mon < 0.5
 ## general code
 Need to specify which component and which uncertainty attitude
 ```{r}
-pc2plot = 'PC2'
-att2plot = 'ambig_corr.med'
+pc2plot = 'PC3'
+att2plot = 'ambig_corr.mon'
 
 ggplot(data_pca[mask_med,], aes(x=eval(parse(text = pc2plot)), y=eval(parse(text = att2plot)))) + 
   geom_point()+
