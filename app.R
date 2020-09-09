@@ -34,6 +34,17 @@ data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
 data(zipcode)
 data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
 
+##### Task behavior ####
+mask_med <- data.all$error.med < 0.5 
+mask_mon <- data.all$error.mon < 0.5
+
+mask_med_young <- data.all$error.med < 0.5 & data.all$is.young == 1  
+mask_mon_young <- data.all$error.mon < 0.5 & data.all$is.young == 1
+
+mask_med_old <- data.all$error.med < 0.5 & data.all$is.young == 0
+mask_mon_old <- data.all$error.mon < 0.5 & data.all$is.young == 0
+
+
 ##### PCA ####
 # select items
 ambig_pca <- data.all %>% select(mTurkCode, 
@@ -180,8 +191,8 @@ score_tb$is.young <- data.all$is.young[!is.na(rowSums(array2pca_raw))]
 data_pca <- merge(data.all, score_tb, by = intersect(colnames(data.all), colnames(score_tb)))
 
 # mask of subject selection based on choice error
-mask_med <- data_pca$error.med < 0.5
-mask_mon <- data_pca$error.mon < 0.5
+mask_pca_med <- data_pca$error.med < 0.5
+mask_pca_mon <- data_pca$error.mon < 0.5
 
 ##### Build UI ####
 # visuzlizing age, gender, counts on map
@@ -193,8 +204,7 @@ ui <- dashboardPage(
     sidebarMenu(
       menuItem("Demographics", tabName = "demograph", icon = icon("database")),
       menuItem("Task behavior", tabName = "att", icon = icon("chart-bar")),
-      menuItem("PCA", tabName = "pca", icon=icon("chart-bar")),
-      menuItem("PC correlation with behavior")
+      menuItem("PCA of Ambiguity Survey", tabName = "pca", icon=icon("chart-bar"))
     )
   ),
   
@@ -217,6 +227,36 @@ ui <- dashboardPage(
               
       ),
       
+      tabItem(tabName = "att",
+              fluidPage(
+                box(selectInput("att1_name", "Choose the 1st task behavior:", 
+                            list("Ambiguity Attitude Medical","Risk Attitude Medical",
+                                 "Ambiguity Attitude Monetary", "Risk Attitude Monetary"),
+                            selected = "Ambiguity Attitude Medical"
+                ), height=80),
+                
+                box(selectInput("att2_name", "Choose the 2nd task behavior:", 
+                                list("Ambiguity Attitude Medical","Risk Attitude Medical",
+                                     "Ambiguity Attitude Monetary", "Risk Attitude Monetary"),
+                                selected = "Ambiguity Attitude Monetary"
+                ), height=80),
+                
+                box(title = "Distribution of the 1st uncertainty attitudes",
+                    plotOutput("plot_att1_distrib", height = 250)),
+                
+                box(title = "Distribution of the 2nd uncertainty attitudes",
+                    plotOutput("plot_att2_distrib", height = 250)),
+                
+                box(title = "Correlation between uncertainty attitudes",
+                    plotOutput("plot_att_corr", height = 250)),
+                
+                box(title = "Correlation between uncertainty attitudes, separated by age",
+                    plotOutput("plot_att_corr_age", height = 250))
+                
+              
+              )
+              ),
+      
       tabItem(tabName="pca",
               # Boxes need to be put in a row (or column)
               fluidRow(
@@ -224,16 +264,44 @@ ui <- dashboardPage(
                 
                 box(plotOutput("plot_cum_var", height = 250)),
                 
-                box(selectInput("comp_name", "Choose a component:", 
+                box(selectInput("comp_name_load", "Choose a component to visualize its loadings:", 
                               list('PC1', 'PC2', 'PC3', 'PC4', 'PC5',
                                    'PC6', 'PC7', 'PC8', 'PC9', 'PC10',
                                    'PC11', 'PC12', 'PC13', 'PC14', 'PC15',
                                    'PC16', 'PC17', 'PC18', 'PC19', 'PC20', 'PC21')
-                              )
+                              ),
+                    height=80
                 ),
                 
+                box(selectInput("comp_name_distrib", "Choose a component to visualize its distribution:", 
+                                list('PC1', 'PC2', 'PC3', 'PC4', 'PC5',
+                                     'PC6', 'PC7', 'PC8', 'PC9', 'PC10',
+                                     'PC11', 'PC12', 'PC13', 'PC14', 'PC15',
+                                     'PC16', 'PC17', 'PC18', 'PC19', 'PC20', 'PC21')
+                ),
+                height=80
+                ),
                 
-                box(plotOutput("plot_loading", height=350))
+                box(plotOutput("plot_loading", height=350)),
+                box(plotOutput("plot_score_distrib", height=350)),
+                
+                box(selectInput("pc2plot", "Choose a component to visualize its correlation with a task measure:", 
+                                list('PC1', 'PC2', 'PC3', 'PC4', 'PC5',
+                                     'PC6', 'PC7', 'PC8', 'PC9', 'PC10',
+                                     'PC11', 'PC12', 'PC13', 'PC14', 'PC15',
+                                     'PC16', 'PC17', 'PC18', 'PC19', 'PC20', 'PC21')
+                ),
+                height=80
+                ),
+                
+                box(selectInput("att_name", "Choose a task measure to visualize correlation with a component:", 
+                                list("Ambiguity Attitude Medical","Risk Attitude Medical",
+                                     "Ambiguity Attitude Monetary", "Risk Attitude Monetary"),
+                                selected = "Ambiguity Attitude Medical"
+                ), height=80),
+                
+                box(plotOutput("plot_score_att", height=350)),
+                box(plotOutput("plot_score_att_age", height=350))
                 
               )
       )      
@@ -248,13 +316,18 @@ ui <- dashboardPage(
 server <- function(input, output) {
   
   output$plot_age <- renderPlot({
-    # data <- histdata[seq_len(input$slider)]
-    # hist(data)
+
     # age
-    ggplot(data.all, aes(x=age)) +
-      geom_histogram(position = "identity", bins = 20) +
+    ggplot(data.all, aes(x=age, fill=is.young, color=is.young)) +
+      geom_histogram(position = "stack", bins = 20, alpha=0.6) +
+      scale_fill_discrete(name="Age", breaks=c(1,0), labels=c('Younger (below 60)','Older (above and including 60)')) +
+      scale_color_discrete(name="Age", breaks=c(1,0), labels=c('Younger (below 60)','Older (above and including 60)')) +
       labs(x = "Age") +
-      ggtitle("Age Distribution")
+      ggtitle("Age Distribution") +
+      theme(legend.text = element_text(size=10),
+            legend.title = element_text(size=9),
+            legend.background = element_blank(),
+            legend.position = c(0.3, 0.8))
   })
   
   output$plot_count_state <- renderPlot({
@@ -276,6 +349,89 @@ server <- function(input, output) {
       ggtitle("Count of participants") +
       labs(fill = "Count") +
       theme(legend.position = "right")
+  })
+  
+  output$plot_att1_distrib <- renderPlot({
+    var1 = case_when(
+      input$att1_name == "Ambiguity Attitude Medical" ~ "ambig_corr.med",
+      input$att1_name == "Ambiguity Attitude Monetary" ~ "ambig_corr.mon",
+      input$att1_name == "Risk Attitude Medical" ~ "risk.med",
+      input$att1_name == "Risk Attitude Monetary" ~ "risk.mon"
+    )
+    
+    ggplot(data.all[mask_med & mask_mon,], aes(x=eval(parse(text=var1)), fill=is.young, color=is.young)) + 
+      geom_histogram(position="identity", alpha=0.6) +
+      scale_fill_discrete(name="Age", breaks=c(1,0), labels=c('Younger (below 60)','Older (above and including 60)')) +
+      scale_color_discrete(name="Age", breaks=c(1,0), labels=c('Younger (below 60)','Older (above and including 60)')) +
+      xlab(input$att1_name) + ylab("Count of participants") +
+      theme(legend.text = element_text(size=10),
+            legend.title = element_text(size=9),
+            legend.background = element_blank(),
+            legend.position = c(0.3, 0.8))
+    
+  })
+  
+  output$plot_att2_distrib <- renderPlot({
+    var2 = case_when(
+      input$att2_name == "Ambiguity Attitude Medical" ~ "ambig_corr.med",
+      input$att2_name == "Ambiguity Attitude Monetary" ~ "ambig_corr.mon",
+      input$att2_name == "Risk Attitude Medical" ~ "risk.med",
+      input$att2_name == "Risk Attitude Monetary" ~ "risk.mon"
+    )
+    
+    ggplot(data.all[mask_med & mask_mon,], aes(x=eval(parse(text=var2)), fill=is.young, color=is.young)) + 
+      geom_histogram(position="identity", alpha=0.6) +
+      scale_fill_discrete(name="Age", breaks=c(1,0), labels=c('Younger (below 60)','Older (above and including 60)')) +
+      scale_color_discrete(name="Age", breaks=c(1,0), labels=c('Younger (below 60)','Older (above and including 60)')) +
+      xlab(input$att2_name) + ylab("Count of participants") +
+      theme(legend.text = element_text(size=10),
+            legend.title = element_text(size=9),
+            legend.background = element_blank(),
+            legend.position = c(0.3, 0.8))
+    
+  })
+  
+  output$plot_att_corr <- renderPlot({
+    # select variables
+    att_name=c(input$att1_name,input$att2_name)
+    
+    var = case_when(
+      att_name == "Ambiguity Attitude Medical" ~ "ambig_corr.med",
+      att_name == "Ambiguity Attitude Monetary" ~ "ambig_corr.mon",
+      att_name == "Risk Attitude Medical" ~ "risk.med",
+      att_name == "Risk Attitude Monetary" ~ "risk.mon"
+    )
+    
+    
+    ggplot(data.all[mask_med & mask_mon,], aes(x=eval(parse(text=var[1])), y=eval(parse(text=var[2])))) + 
+      geom_point()+
+      geom_smooth(method="lm") +
+      xlab(input$att1_name) + ylab(input$att2_name)
+    
+  })
+  
+  output$plot_att_corr_age <- renderPlot({
+    # select variables
+    att_name=c(input$att1_name,input$att2_name)
+    
+    var = case_when(
+      att_name == "Ambiguity Attitude Medical" ~ "ambig_corr.med",
+      att_name == "Ambiguity Attitude Monetary" ~ "ambig_corr.mon",
+      att_name == "Risk Attitude Medical" ~ "risk.med",
+      att_name == "Risk Attitude Monetary" ~ "risk.mon"
+    )
+    
+    
+    ggplot(data.all[mask_med & mask_mon,], aes(x=eval(parse(text=var[1])), y=eval(parse(text=var[2])), color=is.young)) + 
+      geom_point()+
+      scale_fill_discrete(name="Age", breaks=c(1,0), labels=c('Younger (below 60)','Older (above and including 60)')) +
+      scale_color_discrete(name="Age", breaks=c(1,0), labels=c('Younger (below 60)','Older (above and including 60)')) +
+      geom_smooth(method="lm") +
+      xlab(input$att1_name) + ylab(input$att2_name) +
+      theme(legend.text = element_text(size=10),
+            legend.title = element_text(size=9),
+            legend.background = element_blank(),
+            legend.position = c(0.3, 0.8))
   })
   
   output$plot_var <- renderPlot({
@@ -307,7 +463,7 @@ server <- function(input, output) {
   
   output$plot_loading <- renderPlot({
     
-    ggplot(load_plot, aes(x = comp_id, y = eval(parse(text=input$comp_name)))) +
+    ggplot(load_plot, aes(x = comp_id, y = eval(parse(text=input$comp_name_load)))) +
       geom_bar(stat = "identity") +
       scale_x_continuous(breaks = c(1:ncol(array2pca)), labels = item_lab) +
       # scale_y_continuous(limits = c(-0.4,1), breaks = seq(-0.4,0.85,0.2)) +
@@ -317,9 +473,64 @@ server <- function(input, output) {
             axis.text.x = element_text(angle = 90, hjust=1),
             axis.text = element_text(colour = "black", size = 10)) +
       labs(y="Loadings", x="") +
-      ggtitle(input$comp_name)
+      ggtitle(input$comp_name_load)
     
   })
+  
+  output$plot_score_distrib <- renderPlot({
+    # plot PC distribution
+    ggplot(score_tb, aes(x = eval(parse(text=input$comp_name_distrib)), color=is.young, fill=is.young)) +
+      geom_histogram(position = "identity", alpha = 0.5, size =1, bins = 25) +
+      scale_fill_discrete(name="Age", breaks=c(1,0), labels=c('Younger (below 60)','Older (above and including 60)')) +
+      scale_color_discrete(name="Age", breaks=c(1,0), labels=c('Younger (below 60)','Older (above and including 60)')) +
+      theme_classic() +
+      theme(text = element_text(size=12), axis.line = element_line(size = 1),
+            axis.ticks = element_line(colour = "black", size = 1),
+            axis.text = element_text(colour = "black", size = 10),
+            legend.position = c(0.25, 0.9),
+            legend.text = element_text(size=10),
+            legend.title = element_text(size=10),
+            legend.background = element_blank()) +
+      labs(x=input$comp_name_distrib, y="Count of participant")
+  })
+  
+  
+  output$plot_score_att <- renderPlot({
+    # select attitude
+    var = case_when(
+      input$att_name == "Ambiguity Attitude Medical" ~ "ambig_corr.med",
+      input$att_name == "Ambiguity Attitude Monetary" ~ "ambig_corr.mon",
+      input$att_name == "Risk Attitude Medical" ~ "risk.med",
+      input$att_name == "Risk Attitude Monetary" ~ "risk.mon"
+    )
+    
+    ggplot(data_pca[mask_pca_med & mask_pca_mon,], aes(x=eval(parse(text = input$pc2plot)), y=eval(parse(text = var)))) + 
+      geom_point()+
+      geom_smooth(method="lm") + 
+      xlab(input$pc2plot) + ylab(input$att_name)
+  })
+  
+  output$plot_score_att_age <- renderPlot({
+    # select attitude
+    var = case_when(
+      input$att_name == "Ambiguity Attitude Medical" ~ "ambig_corr.med",
+      input$att_name == "Ambiguity Attitude Monetary" ~ "ambig_corr.mon",
+      input$att_name == "Risk Attitude Medical" ~ "risk.med",
+      input$att_name == "Risk Attitude Monetary" ~ "risk.mon"
+    )
+    
+    ggplot(data_pca[mask_pca_med & mask_pca_mon,], aes(x=eval(parse(text = input$pc2plot)), y=eval(parse(text = var)), color = is.young)) + 
+      geom_point()+
+      geom_smooth(method="lm") + 
+      scale_fill_discrete(name="Age", breaks=c(1,0), labels=c('Younger (below 60)','Older (above and including 60)')) +
+      scale_color_discrete(name="Age", breaks=c(1,0), labels=c('Younger (below 60)','Older (above and including 60)')) +
+      xlab(input$pc2plot) + ylab(input$att_name) +
+      theme(legend.text = element_text(size=10),
+            legend.title = element_text(size=9),
+            legend.background = element_blank(),
+            legend.position = c(0.3, 0.9))
+  })
+  
 }
 
 ##### Run app ####
