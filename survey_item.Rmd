@@ -95,6 +95,101 @@ Look at column names
 colnames(data.all)
 ```
 
+# Classify participants based into averse or seeking
+
+## select Qs
+```{r}
+data.classify <- data.all %>% select(mTurkCode, age:gender,
+                                     employment_before, employment_current, household.earnings, 
+                                     medical.insurance,
+                                     income_last.year,
+                                     ambig1_news_sources_1:ambig1_news_sources_7,
+                                     ambig1_gov_local,
+                                     ambig1_sourcebelief_1:ambig1_sourcebelief_6,
+                                     ambig1_news_before,ambig1_news_perday,
+                                     ambig1_you:ambig1_family_friend,
+                                     ambig1_b4restrict, ambig1_b4_rs_state1,
+                                     ambig1_track_deaths, 
+                                     ambig1_in_place:ambig1_ip_yes,
+                                     ambig1_react_nation:ambig1_react_you,
+                                     ambig2_health_impact:ambig2_economics,
+                                     ambig3_current_covi1, ambig3_current_covi2,
+                                     ambig3_daily_affect:ambig3_feel_infect,
+                                     RE_travel_3weeks,
+                                     RE_know_postest, RE_know_hcworker, RE_know_above70, RE_know_chronic, RE_know_pregnant,
+                                     actions_washinghands:actions_physicalser, actions_leisureb4, actions_leisuresince,
+                                     Q1089, # are you practicing social distancing
+                                     Q1091, # which socila distancing methods
+                                     actions_gro_toiletpp:actions_itempurchase,
+                                     actions_household:actions_child,
+                                     actions_adult70,
+                                     actions_gather2to9:actions_gather100,
+                                     anx_feelingnow:anx_nationalpolicy,
+                                     # below are addtional questions
+                                     pastmed_you_ill, pastmed_family_ill,
+                                     pastmed_pastpandemic,
+                                     ethnicity, marital_status:field_of_education, feeling_right_now,
+                                     interest_in_politics:OUS10,
+                                     risk.mon:ambig_corr.med,
+                                     error.mon:error.med,
+                                     is.young,
+                                     zipcode
+                                     )
+
+data.classify
+colnames(data.classify)
+```
+
+save to be preprocessed
+```{r}
+# setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
+# save(data.classify, file="data_to_classify.Rda")
+# write.csv(header,"data_header.csv", row.names = FALSE)
+# write.csv(data.all,"data_all_444sub.csv", row.names = FALSE)
+```
+
+## gender
+```{r}
+# 1-F, 2-M, 3-Non binary, 4-Prefer not to answer
+unique(data.classify$gender)
+length(unique(data.classify$gender))
+
+# turn answer "1,2" into "3"
+data.classify$gender[data.classify$gender=="1,2"] = "3"
+data.classify$gender[data.classify$gender=="1,3"] = "3"
+
+# data.classify %>% filter(gender=="1,2") %>% mutate(gender="3")
+# data.classify %>% filter(gender=="1,3") %>% mutate(gender="3")
+
+data.classify
+unique(data.classify$gender)
+```
+
+
+## employment
+```{r}
+unique(data.classify$employment_before)
+```
+
+
+## count items selected
+```{r}
+data.all$itemspurchased <- as.character(data.all$actions_itempurchase)
+data.all$itemspurchased <- strsplit(data.all$itemspurchased, ",")
+data.all$itemspurchased <- lengths(data.all$itemspurchased)
+```
+
+
+column data type
+```{r}
+ncol(data.classify)
+temp1 <- data.classify %>% mutate_at(3:ncol(data.classify), as.character)
+temp2 <- temp1 %>% mutate_at(3:ncol(data.classify), as.integer)
+temp1
+```
+
+
+
 # composite score for ambiguity attitude
 
 ## select and change data type to integer
@@ -265,7 +360,7 @@ ggplot(ambig_score, aes(x=ambig_score)) +
 ```
 
 ```{r}
-nrow(ambig_score)
+# nrow(ambig_score)
 ambig_score$is.young <- data.all$is.young
 ggplot(ambig_score, aes(x=ambig_score, color=is.young, fill=is.young)) +
   geom_histogram(alpha=0.5, position="stack")
@@ -328,14 +423,58 @@ ggplot(data.all, aes(x=age, y=ambig_score)) +
 ggplot(data.all, aes(x=age, y=ambig_score, color=is.young)) + 
   geom_point()+
   geom_smooth(method="lm")
+
+cor.test(data.all$age, data.all$ambig_score)
+
+
+cor.test(data.all$age[data.all$is.young==1], data.all$ambig_score[data.all$is.young==1])
+cor.test(data.all$age[data.all$is.young==0], data.all$ambig_score[data.all$is.young==0])
+
+```
+
+general code
+```{r}
+colnames(data.all)[407:411]
+y2plot = "infect"
+
+ggplot(data.all, aes(x=age, y=eval(parse(text=y2plot)))) + 
+  geom_point()+
+  geom_smooth(method="lm") +
+  xlab("Age") + ylab(y2plot)
+
+# separate young and old
+ggplot(data.all, aes(x=age, y=eval(parse(text=y2plot)), color=is.young)) + 
+  geom_point()+
+  geom_smooth(method="lm") +
+  xlab("Age") + ylab(y2plot)
+
+ggplot(data.all, aes(x=age, y=eval(parse(text=y2plot)), color=is.young)) + 
+  geom_violin() +
+  xlab("Age") + ylab(y2plot)
+
 ```
 
 mask of subjects inclusion
 ```{r}
 mask_med <- data.all$error.med < 0.5
 mask_mon <- data.all$error.mon < 0.5
+
+mask <- data.all$error.med < 0.5 & data.all$error.mon < 0.5
+sum(mask_med)
+sum(mask)
+mask
 ```
 
+
+```{r}
+mask_med <- data.all$error.med < 0.5 & data.all$risk.med != 0 & data.all$risk.med !=1
+mask_mon <- data.all$error.mon < 0.5 & data.all$risk.mon != 0 & data.all$risk.mon !=1
+
+mask <- data.all$error.med < 0.5 & data.all$risk.med != 0 & data.all$error.mon < 0.5 & data.all$risk.mon != 0 & data.all$risk.med !=1 & data.all$risk.mon != 1
+sum(mask_med)
+sum(mask_mon)
+sum(mask)
+```
 
 ## ambiguity attitude
 ```{r}
@@ -363,6 +502,7 @@ ggplot(data.all[mask_med,], aes(x=ambig_score, y=risk.med)) +
   geom_point()+
   geom_smooth(method="lm")
 
+# note here, correlation effect different in age separated
 ggplot(data.all[mask_med,], aes(x=ambig_score, y=risk.med, color = is.young)) + 
   geom_point()+
   geom_smooth(method="lm")
@@ -375,7 +515,10 @@ ggplot(data.all[mask_mon,], aes(x=ambig_score, y=risk.mon, color = is.young)) +
   geom_point()+
   geom_smooth(method="lm")
 
+cor.test(data.all$ambig_score[mask_med & data.all$is.young==0], data.all$risk.med[mask_med & data.all$is.young==0])
+
 ```
+
 
 ## correlation bewteen monetary and medical attitudes
 ```{r}
@@ -456,6 +599,16 @@ chart.Correlation(data.all[mask_mon_old, c(355,356,407:411)])
 # medical, old
 chart.Correlation(data.all[mask_med_old, c(357,358,407:411)])
 
+```
+
+correlation test
+```{r}
+test_corr <- cor.test(~ambig_corr.med + ambig_score, 
+                      data=data.all[mask_med & mask_mon,])
+
+text = print(test_corr)
+
+text
 ```
 
 # PCA of ambiguity score
@@ -628,7 +781,7 @@ ambig_pca$ambig3_feel_infect <- 6 - ambig_pca$ambig3_feel_infect
 
 ```{r}
 ambig_pca
-View(ambig_pca)
+# View(ambig_pca)
 ```
 
 ## Select data for PCA
@@ -707,12 +860,16 @@ var_explain <- eigs/sum(eigs)
 plot(var_explain, type = "b")
 comp_id = c(1:ncol(array2pca))
 var_plot <- data.frame(comp_id, var_explain)
+```
 
+plot
+```{r}
 # plot variance explained
 ggplot(var_plot, aes(x = comp_id, y = var_explain)) +
   geom_point() + geom_line() +
   scale_x_continuous(breaks = c(1:ncol(array2pca))) +
-  theme_classic()
+  theme_classic() +
+  labs(x="Number of components", y="Variance explained")
 
 # plot cumulative variance
 for (i in c(1:nrow(var_plot))) {
@@ -730,10 +887,10 @@ ggplot(var_plot, aes(x = comp_id, y = var_cumul)) +
   labs(x="Number of components", y="Cumulative variance explained")
 
 # another way to plot eigenvalues
-plot(pcaresult)
+# plot(pcaresult)
 ```
 
-Plot loadings
+Get loadings
 ```{r}
 # plot loadings
 pcaload <- pcaresult$rotation[,]
@@ -747,12 +904,25 @@ load_plot <- data.frame(pcaload)
 load_plot$comp_id = comp_id
 
 # colnames(load_plot) <- c('comp_id', 'comp1', 'comp2', 'comp3')
+```
 
+```{r}
+item_lab <- c("news_perday", "news_before", "track_deaths",
+              "inform_you", "inform_gov",  "inform_scientist", "inform_health_worker", "inform_econ", "inform_family_friend",
+              "react_gov", "react_scientist", "react_health_worker", "react_econ", "react_you",
+              "impact_health", "impact_econ", 
+              "current_situation", 
+              "infect_you", "infect_family_friend",
+              "affect_daily", "infect_feel")
+```
+
+plot loadings
+```{r}
 # bar plot of loadings
 ggplot(load_plot, aes(x = comp_id, y = PC1)) +
   geom_bar(stat = "identity") +
   scale_x_continuous(breaks = c(1:ncol(array2pca)), labels = rownames(load_plot)) +
-  scale_y_continuous(limits = c(0,0.4), breaks = seq(0,0.4,0.05)) +
+  # scale_y_continuous(limits = c(0,0.4), breaks = seq(0,0.4,0.05)) +
   theme_classic() +
   theme(text = element_text(size=12), axis.line = element_line(size = 1),
         axis.ticks = element_line(colour = "black", size = 1),
@@ -787,17 +957,19 @@ ggplot(load_plot, aes(x = comp_id, y = PC3)) +
 
 ```
 
+
+
 general code
 ```{r}
-comp_name = 'PC20'
+comp_name = 'PC1'
 ggplot(load_plot, aes(x = comp_id, y = eval(parse(text=comp_name)))) +
   geom_bar(stat = "identity") +
-  scale_x_continuous(breaks = c(1:ncol(array2pca)), labels = rownames(load_plot)) +
+  scale_x_continuous(breaks = c(1:ncol(array2pca)), labels = item_lab) +
   # scale_y_continuous(limits = c(-0.4,1), breaks = seq(-0.4,0.85,0.2)) +
   theme_classic() +
   theme(text = element_text(size=12), axis.line = element_line(size = 1),
         axis.ticks = element_line(colour = "black", size = 1),
-        axis.text.x = element_text(angle = 90),
+        axis.text.x = element_text(angle = 90, hjust=1),
         axis.text = element_text(colour = "black", size = 10)) +
   labs(y="Loadings", x="") +
   ggtitle(comp_name)
@@ -809,12 +981,12 @@ ggplot(load_plot, aes(x = comp_id, y = eval(parse(text=comp_name)))) +
 ```{r}
 # rotated values
 score = pcaresult$x
-View(score)
-typeof(score)
+# View(score)
+# typeof(score)
 
 # change it to data frame
 score_tb <- as.data.frame.array(score)
-View(score_tb)
+# View(score_tb)
 score_tb$mTurkCode <- ambig_pca$mTurkCode[!is.na(rowSums(array2pca_raw))]
 score_tb$is.young <- data.all$is.young[!is.na(rowSums(array2pca_raw))]
 ```
@@ -824,12 +996,14 @@ Plot PCA components
 # plot PC distribution
 ggplot(score_tb, aes(x = PC1, color=is.young, fill=is.young)) +
   geom_histogram(position = "identity", alpha = 0.5, size =1, bins = 25) +
-  # scale_color_manual(values = c("olivedrab","darkorange3","grey50")) +
-  # scale_fill_manual(values = c("olivedrab","darkorange3","grey50")) +
+  scale_fill_discrete(name="Age", labels=c('Older (above and including 60)', 'Younger (below 60)')) +
+  scale_color_discrete(name="Age", labels=c('Older (above and including 60)', 'Younger (below 60)')) +
   theme_classic() +
   theme(text = element_text(size=12), axis.line = element_line(size = 1),
         axis.ticks = element_line(colour = "black", size = 1),
-        axis.text = element_text(colour = "black", size = 10)) +
+        axis.text = element_text(colour = "black", size = 10),
+        legend.position = c(0.2, 0.9),
+        legend.background = (element_blank())) +
   labs(x="PC1", y="Count of participant")
   
 ggplot(score_tb, aes(x = PC2, color = is.young, fill = is.young)) +
@@ -839,7 +1013,8 @@ ggplot(score_tb, aes(x = PC2, color = is.young, fill = is.young)) +
   theme_classic() +
   theme(text = element_text(size=12), axis.line = element_line(size = 1),
         axis.ticks = element_line(colour = "black", size = 1),
-        axis.text = element_text(colour = "black", size = 10)) +
+        axis.text = element_text(colour = "black", size = 10),
+        legend.position = "left") +
   labs(x="PC2", y="Count of participant")
 
 ggplot(score_tb, aes(x = PC3, color = is.young, fill = is.young)) +
@@ -885,25 +1060,25 @@ ggplot(score_tb, aes(x=PC4, y=PC3, color=is.young)) +
 # ambiguity items PCA score correlation with uncertainty attitude
 ```{r}
 data_pca <- merge(data.all, score_tb, by = intersect(colnames(data.all), colnames(score_tb)))
-View(data_pca)
+# View(data_pca)
 ```
 
 subject selection mask
 ```{r}
-# mask_med <- data_pca$error.med < 0.5
-# mask_mon <- data_pca$error.mon < 0.5
+mask_med <- data_pca$error.med < 0.5
+mask_mon <- data_pca$error.mon < 0.5
 
-mask_med <- data_pca$error.med == 0
-mask_mon <- data_pca$error.mon == 0
+# mask_med <- data_pca$error.med == 0
+# mask_mon <- data_pca$error.mon == 0
 ```
 
 
 ## general code 
 Need to specify which component, which uncertainty attitude, and which domain
 ```{r}
-pc2plot = 'PC21'
-att2plot = 'ambig_corr.med'
-mask = mask_med
+pc2plot = 'PC2'
+att2plot = 'risk.mon'
+mask = mask_mon
 
 ggplot(data_pca[mask_med,], aes(x=eval(parse(text = pc2plot)), y=eval(parse(text = att2plot)))) + 
   geom_point()+
@@ -992,7 +1167,16 @@ colnames(data.all)[ambig_col]
 
 # time consuming news perday
 hist(as.numeric(as.character(data.all$ambig1_news_perday)))
+```
 
+correlation plot and test
+```{r}
+temp <- data.all %>% filter(error.mon<0.5 & error.med<0.5) %>% mutate(ambig1_news_perday=as.numeric(as.character(ambig1_news_perday)))
+
+ggplot(temp, aes(x=ambig1_news_perday, y=ambig_corr.med)) +
+  geom_point()
+
+cor.test(temp$ambig1_news_perday, temp$ambig_corr.med)
 ```
 
 ## Health impact vs. economics impact
