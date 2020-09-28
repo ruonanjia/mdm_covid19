@@ -13,6 +13,7 @@ load library
 library(ggplot2)
 library(ggpubr)
 library(viridis)
+library(tidyverse)
 ```
 
 
@@ -756,6 +757,7 @@ library(rethinking)
 
 
 ## load data
+
 ### MDM covid19 data
 ```{r}
 setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
@@ -764,12 +766,39 @@ load("data_choice_mon_444sub.Rda")
 # load("data_choice_med_444sub.Rda")
 ```
 
+survey data
+```{r}
+# setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
+setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
+load("data_all_444sub_rename.Rda")
+load("data_all_444sub_attitude.Rda")
+
+# combine data
+data.all <- merge(data.all, data.attitude, by = "mTurkCode")
+data.all$age <- as.numeric(as.character(data.all$age)) + 17 # correct coding
+```
+
 exclude subjects
 ```{r}
 setwd(path)
 # those who did not choose any ambiguous lottery
 exclude_list <- read.csv("exclude_bayesian_fitting_mon.csv", header = TRUE)
 ```
+
+select factor
+```{r}
+factor <- data.all %>% select(age, mTurkCode)
+factor
+factor<-rename(factor, id=mTurkCode)
+typeof(factor$id)
+typeof((data.choice.mon$id))
+
+factor <- factor %>% mutate(id=as.integer(as.character(id)))
+data.choice.mon <- merge(data.choice.mon, factor, by="id")
+
+data.choice.mon
+```
+
 
 
 ```{r}
@@ -869,13 +898,14 @@ data_list <- list(
   prob_ref = data.choice.mon$prob.ref,
   ambig_ref = data.choice.mon$ambig.ref,
   val_ref = data.choice.mon$val.ref,
+  age = data.choice.mon$age,
   id = data.choice.mon$subid
 )
 ```
 
 select subjects
 ```{r}
-n_try = 12#  number of subjects to try
+n_try = 50#  number of subjects to try
 start = 1# start from the nth participant
 data_list <- list(
   choice = data.choice.mon$choice[(no_trials*(start-1) + 1):((start + n_try-1)*no_trials)],
@@ -885,6 +915,7 @@ data_list <- list(
   prob_ref = data.choice.mon$prob.ref[(no_trials*(start-1) + 1):((start + n_try-1)*no_trials)],
   ambig_ref = data.choice.mon$ambig.ref[(no_trials*(start-1) + 1):((start + n_try-1)*no_trials)],
   val_ref = data.choice.mon$val.ref[(no_trials*(start-1) + 1):((start + n_try-1)*no_trials)],
+  age = data.choice.mon$age[(no_trials*(start-1) + 1):((start + n_try-1)*no_trials)],
   id = data.choice.mon$subid[(no_trials*(start-1) + 1):((start + n_try-1)*no_trials)] - start + 1
 )
 
@@ -946,10 +977,34 @@ data_list <- list(
 ```
 
 ## individual fitting, no pooling
+
+use ulam
 ```{r}
 
 # individual subjects, not multilevel
-fit.choice.nopool <- ulam(
+fit.choice.nopool.ulam <- ulam(
+  alist(
+    choice ~ dbinom(1, choice_prob), # sample from bernoulli distribution
+    logit(choice_prob) <- (uL-uR)*slope[id],
+    # choice_prob <- 1 / (1 + exp(slope[id]*(uL-uR))), # choice probablity of the lottery
+    uL <- (prob - beta[id] * (ambig/2)) * val ^alpha[id], # subjective value of the lottery
+    uR <- (prob_ref - beta[id] * (ambig_ref/2)) * val_ref ^alpha[id], # subjective value of the reference
+    
+    alpha[id] ~ dlnorm(-0.2, 0.5),
+    beta[id] ~ dnorm(0.2, 2),
+    slope[id] ~ dnorm(1, 3)
+    
+  ), 
+  data = data_list, iter = 1e3, chains=4,
+  start = list(alpha = rep(0.2, n_try), beta = rep(0.2, n_try), sigma = rep(1, n_try))
+)
+
+```
+use map2stan
+```{r}
+
+# individual subjects, not multilevel
+fit.choice.nopool <- map2stan(
   alist(
     choice ~ dbinom(1, choice_prob), # sample from bernoulli distribution
     logit(choice_prob) <- (uL-uR)*slope[id],
@@ -972,7 +1027,11 @@ Look at model fitting result
 ```{r}
 par.nopool <- data.frame(precis(fit.choice.nopool, depth=2))
 # str(fit.choice)
- 
+plot(fit.choice.nopool)
+traceplot(fit.choice.nopool.ulam)
+
+plot(precis(fit.choice.nopool.ulam))
+View(fit.choice.nopool.ulam)
 # View(par.nopool)
 ```
 
@@ -995,6 +1054,7 @@ par.nopool <- data.frame(precis(fit.choice.nopool, depth=2))
 # )
 ```
 
+Look at distributions for setting up priors
 ```{r}
 y<-rexp(1000,1)
 hist(y)
@@ -1003,7 +1063,7 @@ hist(y)
 
 ```{r}
 
-y<-rlnorm(1000,-0.5, 0.2)
+y<-rlnorm(1000, 0, 0.2)
 hist(y)
 # hist(log(y))
 ```
@@ -1078,7 +1138,7 @@ fit.choice.partpool <- map2stan(
     
     # group level priors
     # miu_a ~ dlnorm(-0.5, 0.2),
-    miu_a ~ dlnorm(-0.5, 0.2),
+    miu_a ~ dnorm(0.5, 0.2),
     sigma_a ~ dexp(2),
     # sigma_a ~ dhalfnorm(0,1),
 
@@ -1094,6 +1154,7 @@ fit.choice.partpool <- map2stan(
   ), 
   data = data_list, iter = 1e3, chains=4,
   start=list(miu_a=0.5, miu_b=0.5, miu_s=1, sigma_a = 1, sigma_b = 1, sigma_s = 1),
+  constraints=list(alpha="lower=0", miu_a="lower=0"),
   control=list(adapt_delta=0.95)
 )
 ```
@@ -1164,7 +1225,7 @@ fit.choice.partpool.repar <- map2stan(
     # gq> vector[id]:slope <<- miu_s + sigma_s*param_s
   ), 
   data = data_list, iter = 1e3, chains=4,
-  start=list(miu_a=0.5, miu_b=0.5, miu_s=1, sigma_a = 1, sigma_b = 1, sigma_s = 1),
+  start=list(miu_a=0.3, miu_b=0.5, miu_s=1, sigma_a = 1, sigma_b = 1, sigma_s = 1),
   control=list(adapt_delta=0.95)
 )
 
@@ -1175,14 +1236,14 @@ Look at model fitting result
 par.partpool <- data.frame(precis(fit.choice.partpool, depth=2))
 # str(fit.choice)
 par.partpool.repar <- data.frame(precis(fit.choice.partpool.repar, depth=2))
-# View(par.partpool)
+View(par.partpool)
 # View(par.partpool.repar)
 
 ```
 
-## Compare the no-pooling and part-pooling
+## Compare different fittings
 ```{r}
-
+# no pooling
 nopool <- data.frame(
   id = c(1:n_try),
   alpha = par.nopool$mean[1:n_try],
@@ -1191,6 +1252,8 @@ nopool <- data.frame(
   method=rep('nopool', n_try)
 )
 
+# partial pooling
+# for ulam output
 partpool <- data.frame(
   id=c(1:n_try),
   alpha=par.partpool$mean[1:n_try],
@@ -1199,8 +1262,17 @@ partpool <- data.frame(
   method=rep('partpool', n_try)
 )
 
-# re-parameterized model
+# for map2stan output
+partpool <- data.frame(
+  id=c(1:n_try),
+  alpha=par.partpool$mean[(1+6):(n_try+6)],
+  beta=par.partpool$mean[(n_try + 1+6):(2*n_try+6)],
+  slope=par.partpool$mean[(2*n_try + 1+6):(3*n_try+6)],
+  method=rep('partpool', n_try)
+)
 
+# re-parameterized model, partial pooling
+# map2stan output
 partpool.repar <- data.frame(
   id=c(1:n_try),
   alpha=par.partpool.repar$mean[(1+6):(n_try+6)] * par.partpool.repar["sigma_a", "mean"] + par.partpool.repar["miu_a", "mean"],
@@ -1209,6 +1281,7 @@ partpool.repar <- data.frame(
   method=rep('partpool.repar', n_try)
 )
 
+# ulam output
 # partpool.repar <- data.frame(
 #   id=c(1:n_try),
 #   alpha=par.partpool.repar$mean[(nrow(par.partpool.repar)-n_try+1):nrow(par.partpool.repar)],
@@ -1218,19 +1291,111 @@ partpool.repar <- data.frame(
 # )
 
 compare <- rbind(nopool, partpool,partpool.repar)
+
+View(compare)
 ```
 
 ```{r}
-ggplot(compare, aes(x = id, y = alpha, color = method, fill = method)) + 
+n_try
+```
+
+
+```{r}
+n_plot = 50
+
+ggplot(compare[is.element(compare$id, seq(1,n_plot)),], aes(x = id, y = alpha, color = method, fill = method)) + 
   geom_point(size = 3, alpha = 0.5)
 
-ggplot(compare, aes(x = id, y = beta, color = method, fill = method)) + 
+ggplot(compare[is.element(compare$id, seq(1,n_plot)),], aes(x = id, y = beta, color = method, fill = method)) + 
   geom_point(size = 3, alpha = 0.5)
 
-ggplot(compare, aes(x = id, y = slope, color = method, fill = method)) + 
+ggplot(compare[is.element(compare$id, seq(1,n_plot)),], aes(x = id, y = slope, color = method, fill = method)) + 
   geom_point(size = 3, alpha = 0.5)
 
 # ggplot(partpool, aes(x = id, y = alpha)) + 
 #   geom_point(size = 3)
 ```
 
+## Age multilevel model
+using ulam
+```{r}
+
+fit.choice.partpool.factor <- ulam(
+  alist(
+    choice ~ dbinom(1, choice_prob), # sample from bernoulli distribution
+    logit(choice_prob) <- (uL-uR)*slope[id],
+    uL <- (prob - beta[id] * (ambig/2)) * val ^ (slope_age*age[id] + miu_a + alpha[id]), # subjective value of the lottery
+    uR <- (prob_ref - beta[id] * (ambig_ref/2)) * val_ref ^ (slope_age*age[id] + miu_a + alpha[id]), # subjective value of the reference
+    
+    beta[id] ~ dnorm(miu_b, sigma_b),
+    slope[id] ~ dnorm(miu_s, sigma_s),
+    alpha[id] ~ dlnorm(-0.5, 0.5),
+    
+    # group level priors
+    # priors for age effect on risk attitude
+    slope_age ~ dnorm(0, 1),
+    miu_a ~ dnorm(0.5, 1),
+    # sigma_a ~ dexp(2),
+
+    miu_b ~ dnorm(0.2, 1),
+    sigma_b ~ dexp(2),
+
+    miu_s ~ dnorm(1, 1),
+    sigma_s ~ dexp(2)
+
+  ), 
+  data = data_list, iter = 1e3, chains=3,
+  start=list(slope_age=0, miu_a = 0.8, miu_b=0.7, miu_s=0.8, sigma_b = 0.5, sigma_s = 0.5),
+  control=list(adapt_delta=0.95)
+)
+
+```
+
+Look at model fitting result
+```{r}
+par.partpool.factor <- data.frame(precis(fit.choice.partpool.factor, depth=2))
+View(par.partpool.factor)
+
+age_n_try = data_list$age[seq(1,length(data_list$age),no_trials)]
+  
+partpool.factor<- data.frame(
+  id=c(1:n_try),
+  alpha=age_n_try * par.partpool.factor["slope_a", "mean"] + par.partpool.factor["miu_a", "mean"],
+  beta=par.partpool.factor$mean[1:n_try],
+  slope=par.partpool.factor$mean[(n_try + 1):(2*n_try)],
+  method=rep('partpool.factor', n_try)
+)
+
+View(partpool.factor)
+```
+
+Use map2stan
+```{r}
+fit.choice.partpool.factor.2 <- map2stan(
+  alist(
+    choice ~ dbinom(1, choice_prob), # sample from bernoulli distribution
+    logit(choice_prob) <- (uL-uR)*slope[id],
+    uL <- (prob - beta[id] * (ambig/2)) * val ^ (slope_age*age[id] + miu_a), # subjective value of the lottery
+    uR <- (prob_ref - beta[id] * (ambig_ref/2)) * val_ref ^ (slope_age*age[id] + miu_a), # subjective value of the reference
+    
+    beta[id] ~ dnorm(miu_b, sigma_b),
+    slope[id] ~ dnorm(miu_s, sigma_s),
+    
+    # group level priors
+    # priors for age effect on risk attitude
+    slope_age ~ dnorm(0, 1),
+    miu_a ~ dnorm(0.5, 1),
+    # sigma_a ~ dexp(2),
+
+    miu_b ~ dnorm(0.2, 1),
+    sigma_b ~ dexp(2),
+
+    miu_s ~ dnorm(1, 1),
+    sigma_s ~ dexp(2)
+
+  ), 
+  data = data_list, iter = 1e3, chains=3,
+  start=list(slope_age=0, miu_a = 0.5, miu_b=0.7, miu_s=0.8, sigma_b = 0.5, sigma_s = 0.5),
+  control=list(adapt_delta=0.95)
+)
+```
