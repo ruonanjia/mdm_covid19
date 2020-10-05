@@ -38,6 +38,7 @@ library("PerformanceAnalytics") # for chart correlation
 library(usmap) # for plotting data us maps
 library(scales) # for muted() function
 library(tidyverse)
+# library(memisc)
 ```
 
 # load data
@@ -94,101 +95,6 @@ Look at column names
 ```{r}
 colnames(data.all)
 ```
-
-# Classify participants based into averse or seeking
-
-## select Qs
-```{r}
-data.classify <- data.all %>% select(mTurkCode, age:gender,
-                                     employment_before, employment_current, household.earnings, 
-                                     medical.insurance,
-                                     income_last.year,
-                                     ambig1_news_sources_1:ambig1_news_sources_7,
-                                     ambig1_gov_local,
-                                     ambig1_sourcebelief_1:ambig1_sourcebelief_6,
-                                     ambig1_news_before,ambig1_news_perday,
-                                     ambig1_you:ambig1_family_friend,
-                                     ambig1_b4restrict, ambig1_b4_rs_state1,
-                                     ambig1_track_deaths, 
-                                     ambig1_in_place:ambig1_ip_yes,
-                                     ambig1_react_nation:ambig1_react_you,
-                                     ambig2_health_impact:ambig2_economics,
-                                     ambig3_current_covi1, ambig3_current_covi2,
-                                     ambig3_daily_affect:ambig3_feel_infect,
-                                     RE_travel_3weeks,
-                                     RE_know_postest, RE_know_hcworker, RE_know_above70, RE_know_chronic, RE_know_pregnant,
-                                     actions_washinghands:actions_physicalser, actions_leisureb4, actions_leisuresince,
-                                     Q1089, # are you practicing social distancing
-                                     Q1091, # which socila distancing methods
-                                     actions_gro_toiletpp:actions_itempurchase,
-                                     actions_household:actions_child,
-                                     actions_adult70,
-                                     actions_gather2to9:actions_gather100,
-                                     anx_feelingnow:anx_nationalpolicy,
-                                     # below are addtional questions
-                                     pastmed_you_ill, pastmed_family_ill,
-                                     pastmed_pastpandemic,
-                                     ethnicity, marital_status:field_of_education, feeling_right_now,
-                                     interest_in_politics:OUS10,
-                                     risk.mon:ambig_corr.med,
-                                     error.mon:error.med,
-                                     is.young,
-                                     zipcode
-                                     )
-
-data.classify
-colnames(data.classify)
-```
-
-save to be preprocessed
-```{r}
-# setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
-# save(data.classify, file="data_to_classify.Rda")
-# write.csv(header,"data_header.csv", row.names = FALSE)
-# write.csv(data.all,"data_all_444sub.csv", row.names = FALSE)
-```
-
-## gender
-```{r}
-# 1-F, 2-M, 3-Non binary, 4-Prefer not to answer
-unique(data.classify$gender)
-length(unique(data.classify$gender))
-
-# turn answer "1,2" into "3"
-data.classify$gender[data.classify$gender=="1,2"] = "3"
-data.classify$gender[data.classify$gender=="1,3"] = "3"
-
-# data.classify %>% filter(gender=="1,2") %>% mutate(gender="3")
-# data.classify %>% filter(gender=="1,3") %>% mutate(gender="3")
-
-data.classify
-unique(data.classify$gender)
-```
-
-
-## employment
-```{r}
-unique(data.classify$employment_before)
-```
-
-
-## count items selected
-```{r}
-data.all$itemspurchased <- as.character(data.all$actions_itempurchase)
-data.all$itemspurchased <- strsplit(data.all$itemspurchased, ",")
-data.all$itemspurchased <- lengths(data.all$itemspurchased)
-```
-
-
-column data type
-```{r}
-ncol(data.classify)
-temp1 <- data.classify %>% mutate_at(3:ncol(data.classify), as.character)
-temp2 <- temp1 %>% mutate_at(3:ncol(data.classify), as.integer)
-temp1
-```
-
-
 
 # composite score for ambiguity attitude
 

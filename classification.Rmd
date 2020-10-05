@@ -1,0 +1,807 @@
+---
+title: "classification"
+author: "ruonanjia"
+date: "10/1/2020"
+---
+
+```{r}
+rm(list = ls())
+```
+
+load library
+```{r}
+library(ggplot2)
+library(zipcode) # install only available through archive
+library(maps)
+library(ggpubr)
+library("PerformanceAnalytics") # for chart correlation
+library(usmap) # for plotting data us maps
+library(scales) # for muted() function
+library(tidyverse)
+
+# library(memisc)
+```
+
+# load data
+```{r}
+# setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
+setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
+load("data_all_444sub_rename.Rda")
+load("data_all_444sub_rename_header.Rda")
+load("data_all_444sub_attitude.Rda")
+
+# combine data
+data.all <- merge(data.all, data.attitude, by = "mTurkCode")
+data.all$age <- as.numeric(as.character(data.all$age)) + 17 # correct coding
+rm(data.attitude)
+```
+
+# Preprocess some data columns, run the following chunks before further analysis:
+
+Separate young and old, compare with 60 yr
+```{r}
+data.all$is.young <- 1
+data.all$is.young[data.all$age >= 60] = 0 
+data.all$is.young <- as.factor(data.all$is.young)
+```
+
+Clean zipcode
+```{r}
+# clean zipcode
+data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
+data(zipcode)
+data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
+```
+
+
+# Classify participants based into averse or seeking
+
+## select Qs
+```{r}
+data.classify <- data.all %>% dplyr::select(mTurkCode, age:gender,
+                                     employment_before, employment_current, household.earnings, 
+                                     medical.insurance,
+                                     income_last.year,
+                                     ambig1_news_sources_1:ambig1_news_sources_7,
+                                     ambig1_gov_local,
+                                     ambig1_sourcebelief_1:ambig1_sourcebelief_6,
+                                     ambig1_news_before,ambig1_news_perday,
+                                     ambig1_you:ambig1_family_friend,
+                                     ambig1_b4restrict, ambig1_b4_rs_state1, # text entry, hard to process
+                                     ambig1_track_deaths, 
+                                     ambig1_in_place:ambig1_ip_yes,
+                                     ambig1_react_nation:ambig1_react_you,
+                                     ambig2_health_impact:ambig2_economics,
+                                     ambig3_current_covi1, ambig3_current_covi2,
+                                     ambig3_daily_affect:ambig3_feel_infect,
+                                     RE_travel_3weeks,
+                                     RE_know_postest, RE_know_hcworker, RE_know_above70, RE_know_chronic, RE_know_pregnant,
+                                     actions_washinghands:actions_physicalser, actions_leisureb4, actions_leisuresince,
+                                     Q1089, # are you practicing social distancing
+                                     Q1091, # which socila distancing methods
+                                     actions_gro_toiletpp:actions_itempurchase,
+                                     actions_household:actions_livealone, actions_emergency:actions_child,
+                                     actions_adult70,
+                                     actions_gather2to9:actions_gather100,
+                                     anx_feelingnow:anx_nationalpolicy,
+                                     # below are addtional questions
+                                     pastmed_you_ill, pastmed_family_ill,
+                                     pastmed_pastpandemic,
+                                     ethnicity, marital_status:field_of_education, feeling_right_now,
+                                     interest_in_politics:OUS10,
+                                     risk.mon:ambig_corr.med,
+                                     error.mon:error.med,
+                                     is.young,
+                                     zipcode
+                                     )
+
+data.classify
+# colnames(data.classify)
+```
+
+save to be preprocessed
+```{r}
+# setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
+# save(data.classify, file="data_to_classify.Rda")
+# write.csv(header,"data_header.csv", row.names = FALSE)
+# write.csv(data.all,"data_all_444sub.csv", row.names = FALSE)
+```
+
+## gender
+```{r}
+# 1-F, 2-M, 3-Non binary, 4-Prefer not to answer
+# unique(data.classify$gender)
+# length(unique(data.classify$gender))
+
+# turn answer "1,2" into "3"
+data.classify$gender[data.classify$gender=="1,2"] = "3"
+data.classify$gender[data.classify$gender=="1,3"] = "3"
+
+# data.classify %>% filter(gender=="1,2") %>% mutate(gender="3")
+# data.classify %>% filter(gender=="1,3") %>% mutate(gender="3")
+
+data.classify
+# unique(data.classify$gender)
+```
+
+## function to mutate on selected rows based on condition
+```{r}
+# mutate_cond <- function(.data, condition, ..., envir = parent.frame()) {
+#   condition <- eval(substitute(condition), .data, envir)
+#   .data[condition, ] <- .data[condition, ] %>% mutate(...)
+#   .data
+# }
+
+# usage, e.g.
+# DF %>% mutate_cond(measure == 'exit', qty.exit = qty, cf = 0, delta.watts = 13)
+```
+
+
+## employment
+1-Working full-time in companies, organizations, etc.
+2-Working part-time in companies, organizations, etc.
+3-Private business owner
+4-Independent contractor
+5-Keeping house
+6-Unemployed, looking for work
+7-Unemployed, not looking for work
+8-Disabled
+9-Retired
+10-Student, full-time
+11-Student, part-time
+12-Other, please specify
+```{r}
+# Recode:
+# Employed - 1,2,3,4
+# Housekeeping - 5
+# unemployed - 6,7
+# disabled - 8
+# retired - 9
+# student - 10,11
+
+# employment before
+data.classify$employment_before <- as.character(data.classify$employment_before)
+data.classify$employment_before <- strsplit(data.classify$employment_before, ",")
+# data.classify$employment_before_refac <- data.classify$employment_before
+
+for (i in 1:nrow(data.classify)) {
+  
+  items <- unlist(data.classify$employment_before[i])
+  
+  data.classify$employment_before[i] <- case_when(
+    any(is.element(c("1", "2", "3", "4"), items)) ~ "1",
+    any(is.element(c("5"), items)) ~ "2",
+    any(is.element(c("6", "7"), items)) ~ "3",
+    any(is.element(c("8"), items)) ~ "4",
+    any(is.element(c("9"), items)) ~ "5",
+    any(is.element(c("10", "11"), items)) ~ "6"
+  )
+    
+}
+
+# check if the recoding is correct
+# temp <- data.classify %>% select(employment_before, employment_before_refac)
+# View(temp)
+
+# employment current
+data.classify$employment_current <- as.character(data.classify$employment_current)
+data.classify$employment_current <- strsplit(data.classify$employment_current, ",")
+
+for (i in 1:nrow(data.classify)) {
+  
+  items <- unlist(data.classify$employment_current[i])
+  
+  data.classify$employment_current[i] <- case_when(
+    any(is.element(c("1", "2", "3", "4"), items)) ~ "1",
+    any(is.element(c("5"), items)) ~ "2",
+    any(is.element(c("6", "7"), items)) ~ "3",
+    any(is.element(c("8"), items)) ~ "4",
+    any(is.element(c("9"), items)) ~ "5",
+    any(is.element(c("10", "11"), items)) ~ "6"
+  )
+    
+}
+
+
+data.classify <- data.classify %>% mutate_at(c("employment_before", "employment_current"), as.integer)
+
+data.classify <- data.classify %>% mutate_at(c("employment_before", "employment_current"), as.factor)
+
+data.classify
+
+# tried without for loops, did not work:
+# data.classify$employment_before_refac <- vector(mode="character", length=nrow(data.classify))
+# data.classify
+# unique(data.classify$employment_before)
+# 
+# data.classify$employment_before_refac[any(str_detect((data.classify$employment_before_refac), c("1", "2", "3", "4")))] <- "1"
+# 
+# data.classify <- data.classify %>% mutate_cond(!is.na(match(employment_before, list("1"))), employment_before = list("1"))
+
+```
+
+
+## household earnings
+What impact do you think the outbreak will have on your household earnings this year?
+1-Significantly decrease
+2- Moderately decrease
+3-Slightly decrease
+4-No impact
+5-Slightly increase
+6-Moderately increase
+7-Significantly increase
+
+## medical insurance
+Are you currently covered by medical insurance?
+1-Yes
+2-No
+
+## income last year
+What was the total income of your household during the last year, in your own currency?
+Consider all forms of income, including salaries, tips, interest and dividend payments, scholarship support, student loans, parental support, social security, alimony, and child support, and others.
+```{r}
+# data.classify$income_last.year
+# typeof(data.classify$income_last.year)
+
+data.classify$income_last.year <- as.character(data.classify$income_last.year)
+
+# take out only the numeric
+library(readr)
+data.classify$income_last.year <- parse_number(data.classify$income_last.year)
+
+```
+
+## news source
+Which sources do you tend to get your news from? Please drag to order the following options from most to least.
+ambig1_news_sources_1:7
+
+Number in each column indicates ranking.
+Item IDs:
+1-Daily publications, online or print
+2-Newsletters or blogs
+3-Podcasts
+4-Radio
+5-Social media
+6-TV (national / local news stations)
+7-Word of mouth
+
+## sources of belief
+Which sources have most influenced your opinions and beliefs about the COVID-19 pandemic? Please drag to order the following options from most to least.
+ambig1_sourcebelief_1:6
+
+Number in each column indicates ranking.
+Item IDs:
+1-Government officials
+2-Research scientists
+3-Healthcare workers
+4-Economists/financial advisors
+5-Journalists
+6-Family and friends
+
+## news consumption 
+news_before and news_perday
+1-Less than 15 minutes
+2-15-30 minutes
+3-30 mins to 1 hour
+4-1 to 3 hours
+5-3 to 5 hours
+6-Over 5 hours
+
+## how well-informed
+ambigs1_you:family_friend
+
+## how long before removed
+ambig1_b4restrict, ambig_b4_rs_state1
+How long do you think it will be before government restrictions related to the COVID-19 pandemic will be completely removed
+```{r}
+# take out number and convert into months
+
+
+```
+
+
+## tracking death
+1-Several times a day
+2-Daily
+3-Once every other day
+4-A couple of times a week
+5-Weekly
+6-Less than once per week
+7-Rarely or Never
+
+## measures in place
+national and states
+turn into count: how many measures do they know are in place
+```{r}
+data.classify <- data.classify %>% mutate_at(c("ambig1_in_place", "ambig1_ip_yes"), as.character)
+
+data.classify <- data.classify %>% mutate_at(c("ambig1_in_place", "ambig1_ip_yes"), strsplit, split=",")
+
+data.classify <- data.classify %>% mutate_at(c("ambig1_in_place", "ambig1_ip_yes"), lengths)
+
+data.classify
+```
+
+## how appropriate reaction
+1-Completely overreacting
+2-Somewhat overreacting
+3-Appropriate
+4-Somewhat insufficient
+5-Completely insufficient
+
+## health or economics impact
+To what extent do you think the government should consider health/economic impacts of the pandemic when making policy decisions?
+1-Extremely
+2-A lot
+3-Somewhat
+4-Uncertain
+5-Not much
+6-Not a lot
+7-Not at all
+
+## current situation
+How would you describe the current situation of the COVID-19 outbreak, national or state
+
+1-Very severe
+2-Somewhat severe
+3-Average
+4-Somewhat not severe
+5-Not very severe
+6-Not at all severe
+
+## daily life affect
+How much do you think your daily life has been affected by the COVID-19 outbreak?
+
+1-Extremely
+2-A lot
+3-Somewhat
+4-Uncertain
+5-Not much
+6-Not a lot
+7-Not at all
+
+## how likely getting infected
+1-Have already been infected (confirmed by test)
+2-Extremely likely
+3-Moderately likely
+4-Slightly likely
+5-Neither likely nor unlikely
+6-Slightly unlikely
+7-Moderately unlikely
+8-Extremely unlikely
+9-I don't know
+
+## feel if infected
+If you were to be infected with COVID-19, how do you think you would feel?
+
+Extremely unwell
+Very unwell
+Moderately unwell
+Slightly unwell
+Not at all unwell
+
+## travel past 3 weeks
+1-No
+2-Yes, domestically. If so, when? (Format: mm/dd/yyyy)
+3-Yes, internationally. If so, when? (Format: mm/dd/yyyy)
+
+## know any people at risk
+Positive test, healthcare worker, above 70, chronic, pregnant
+1-No
+2-Self
+3-Immediate family
+4-Extended family
+5-Friends
+6-Neighbors
+7-Colleagues with frequent interaction
+8-Classmates
+9-Others, please specify:
+```{r}
+data.classify <- data.classify %>% mutate_at(c("RE_know_postest","RE_know_hcworker","RE_know_above70","RE_know_chronic","RE_know_pregnant"), as.character)
+
+data.classify <- data.classify %>% mutate_at(c("RE_know_postest","RE_know_hcworker","RE_know_above70","RE_know_chronic","RE_know_pregnant"), strsplit, split=",")
+
+data.classify <- data.classify %>% mutate_at(c("RE_know_postest","RE_know_hcworker","RE_know_above70","RE_know_chronic","RE_know_pregnant"), lengths)
+```
+
+## actions frequency change
+Please select the option that best describes how your frequency of engaging in the following activities has been affected by the COVID-19 pandemic.
+
+1-Greatly increased
+2-Moderately increased
+3-Slightly increased
+4-About the same
+5-Slightly decreased
+6-Moderately decreased
+7-Greatly decreased
+8-Not Applicable
+
+## what leasure activities
+before, since
+```{r}
+data.classify <- data.classify %>% mutate_at(c("actions_leisureb4","actions_leisuresince"), as.character)
+
+data.classify <- data.classify %>% mutate_at(c("actions_leisureb4","actions_leisuresince"), strsplit, split=",")
+
+data.classify <- data.classify %>% mutate_at(c("actions_leisureb4","actions_leisuresince"), lengths)
+```
+
+## practice social distance
+Are you practicing social distancing?
+1-Yes, since (please enter a date in the format of mm/dd/yy)
+2-No, because I think it is unnecessary.
+3-No, because of other reasons, please specify:
+
+```{r}
+# change column name
+data.classify <- rename(data.classify, actions_socialdist = Q1089, actions_socialdist_method = Q1091)
+
+data.classify <- data.classify %>% mutate_at(c("actions_socialdist_method"), as.character)
+
+data.classify <- data.classify %>% mutate_at(c("actions_socialdist_method"), strsplit, split=",")
+
+data.classify <- data.classify %>% mutate_at(c("actions_socialdist_method"), lengths)
+
+```
+
+
+## grocery store run out
+actions_gro_toiletpp:hygiene
+Indicate to what extent you believe that grocery stores in your area already have or in the near future (next two weeks) will run out of the supplies below:
+
+1-Definitely not
+2-Probably not
+3-Might not
+4-Uncertain
+5-Might
+6-Probably will
+7-Definitely will
+
+
+## item purchased
+```{r}
+data.classify <- data.classify %>% mutate_at(c("actions_itempurchase"), as.character)
+
+data.classify <- data.classify %>% mutate_at(c("actions_itempurchase"), strsplit, split=",")
+
+data.classify <- data.classify %>% mutate_at(c("actions_itempurchase"), lengths)
+```
+
+## household or roommate
+how many people (including you) in the household
+
+Do you live alone
+1-Yes
+2-No, I live with family
+3-No, I live with roommate(s)
+
+Do you have family or friends to contact in case of emergency?
+1-Yes
+2-No
+
+Are there any children in your household?
+1-Yes
+2-No
+
+Are there any older adults (over 70) in your household?
+1-Yes
+2-No
+
+## gathering
+When were you most recently in a gathering of more than XX-XX people (including family gathering, religious services, attending meetings etc).
+
+1-Today
+2-Yesterday
+3-Earlier this week
+4-Last week
+5-The week before last week
+6-Over two weeks ago
+
+## anxiety
+1-Not at all
+2-A little
+3-Somewhat
+4-A fair amount
+5-Much
+6-Very much
+7Extremely
+
+How much anxiety is influencedd by XX
+1-Not at all
+2-A little
+3-Somewhat
+4-A fair amount
+5-Much
+6-Very much
+7-Extremely
+8-Not applicable
+
+## medical history
+1-no
+2-yes
+
+## other demographic
+Ethnicity
+1-Asian
+2-Black/African
+3-White/Caucasian
+4-Hispanic/Latinx
+5-Native American
+6-Pacific Islander
+7-Other, please specify:
+8-Prefer not to answer
+
+Marital
+1-Recode Values  Variable Naming
+2-Single
+3-Married
+4-Unmarried partners
+5-Widowed
+6-Divorced
+
+Education
+1-Less than high school graduate
+2-High school graduate or GED (General Equivalent Diploma)
+3-Some colledge or post-high school
+4-College graduate
+5-Advanced graduate or professional degree
+
+Field of education
+1-General
+2-Education
+3-Humanities and arts
+4-Social sciences, business and law
+5-Natural sciences
+6-Engineering, manufacturing and construction
+7-Agriculture
+8-Medicine and healthcare
+9-Services
+10-Other, please specify
+
+Feeling right now
+1-6: good-bad
+
+## Political
+How interested would you say you are in politics?
+1-Very uninterested
+2-Somewhat uninteresed
+3-Slightly uninterested
+4-Not sure
+5-Slightly interested
+6-Somewhat interested
+7-Very interested
+
+
+When it comes to politics, do you usually think of yourself as liberal, moderate, conservative, or something else?
+1-Very liberal
+2-Liberal
+3-Slightly liberal
+4-Moderate / middle-of-the-road
+5-Slightly conservative
+6-Conservative
+7-Very conservative
+8-Don't know / not political
+9-Libertarian
+10-Other
+
+## religious
+
+How strongly do you believe in the existence of a God/s or some supreme power?
+1-Very much
+2-Moderately
+3-Slightly
+4-Not sure
+5-Slightly do not
+6-Moderately do not
+7-Do not at all
+8-Agnostic
+
+Please rate your own religiosity:
+1-Very religious
+2-Moderately religious
+3-Slightly regligious
+4-Not sure
+5-Slightly not religious
+6-Moderately not religious
+7-Not at all religious
+
+## utilitarianism scale
+OUS
+1-Strongly disagree
+2-Disagree
+3-Somewhat disagree
+4-Neither agree nor disagree
+5-Somewhat agree
+6-Agree
+7-Strongly agree
+
+
+## zipcode
+turn zipcode into state
+```{r}
+# View(zipcode)
+
+data.classify <- rename(data.classify, zip = zipcode)
+data.classify <- merge(data.classify, zipcode, by='zip')
+data.classify$state <- as.factor(data.classify$state)
+```
+
+## select high-low uncertainty attitude
+
+exclude subject
+```{r}
+data.classify.mon <- filter(data.classify, error.mon<0.5)
+# data.classify.med <- filter(data.classify, error.med<0.5)
+```
+
+monetary risk attitude
+```{r}
+# sort assending
+# actually not necessary
+# data.classify.mon <- arrange(data.classify.mon, risk.mon)
+
+# get risk attitude quantile
+critical_val <- quantile(data.classify.mon$risk.mon, probs=seq(0,1,0.33))
+
+# label
+data.classify.mon$risk.mon.label <- case_when(
+  data.classify.mon$risk.mon < critical_val[2] ~ 1,
+  data.classify.mon$risk.mon < critical_val[3] ~ 2,
+  TRUE ~ 3
+)
+
+data.classify.mon$risk.mon.label <- as.factor(data.classify.mon$risk.mon.label)
+# View(data.classify.mon)
+```
+
+
+check distribution of the uncertainty attitude, labeld by high-low
+```{r}
+ggplot(data.classify.mon, aes(x=risk.mon, fill=risk.mon.label)) +
+  geom_histogram()
+```
+
+## remove excessive columns before classification
+```{r}
+df2classify <- data.classify.mon
+```
+
+classify 1/3 high risk averse, and 1/3 low risk averse
+```{r}
+df2classify <- filter(df2classify, risk.mon.label != 2)
+df2classify$risk.mon.label <- case_when(
+                                        df2classify$risk.mon.label==1 ~ 0,
+                                        df2classify$risk.mon.label==3 ~ 1)
+
+df2classify$risk.mon.label <- as.factor(df2classify$risk.mon.label)
+typeof(df2classify$risk.mon.label)
+```
+
+check distribution of the uncertainty attitude, labeld by high-low
+```{r}
+ggplot(df2classify, aes(x=risk.mon, fill=risk.mon.label)) +
+  geom_histogram()
+```
+
+```{r}
+id <- df2classify$mTurkCode
+
+df2classify <- dplyr :: select(
+  df2classify, 
+  
+  -c(zip, mTurkCode, ambig1_b4restrict, ambig1_b4_rs_state1,
+     ambig1_ip_national, ambig1_ip_yes,
+     actions_goingtowork, actions_goingschoo, actions_religiousser, actions_usepubtrans,
+     risk.mon, ambig_corr.mon, risk.med, ambig_corr.med, error.mon, error.med, is.young, city, latitude, longitude,
+     # below items do not have too much variability
+     pastmed_you_ill, pastmed_family_ill, pastmed_pastpandemic, actions_gather50to99, actions_gather10to49, actions_socialdist, RE_know_postest
+     )
+  
+  )
+```
+
+
+
+# classification
+
+## plot
+
+```{r}
+ggplot(df2classify, aes(x=age, y=income_last.year,color=risk.mon.label, fill=risk.mon.label)) + 
+  geom_point()
+```
+
+
+## select training and testing data
+```{r}
+nrow(df2classify)
+
+n_train = 230
+n_test = nrow(df2classify)-n_train
+
+n_train
+n_test
+
+# randomly select
+set.seed(2020)
+mask_train = sample(seq(1,nrow(df2classify),1), n_train)
+mask_test = setdiff(seq(1,nrow(df2classify),1), mask_train)
+
+train <- df2classify[mask_train,]
+test <- df2classify[mask_test,]
+```
+
+## logistic regression
+```{r}
+glm.fit=glm(risk.mon.label~., 
+            data=train,
+            family=binomial,
+            na.action="na.omit")
+# summary(glm.fit)
+
+summary(glm.fit)$coef
+
+glm.predict <- predict(glm.fit, type="response")
+class.predict <- case_when(glm.predict < 0.5 ~ 0,
+                           glm.predict >= 0.5 ~ 1)
+
+mean(class.predict == train$risk.mon.label)
+
+test.predict <- predict(glm.fit, test, type="response")
+```
+
+
+## LDA, train and calculate test accuracy
+LDA assumes multinormal distribution of predictors
+```{r}
+# load the package
+library(MASS)
+```
+
+```{r}
+# train
+lda.fit <- lda(risk.mon.label ~ age + income_last.year + RE_know_hcworker,
+               data=train)
+
+# test
+lda.predict <- predict(lda.fit, test)
+
+# test accuracy
+mean(lda.predict$class==test$risk.mon.label)
+
+```
+
+
+```{r}
+# fit model, leave-one-out prediction
+
+lda.fit <- lda(risk.mon.label ~ age + income_last.year + RE_know_hcworker,
+               data=df2classify,
+               na.action="na.omit", CV=TRUE)
+
+
+
+
+fit <- lda(risk.mon.label ~ .,
+           data=df2classify,
+           na.action="na.omit", CV=TRUE)
+
+# summarize the fit
+fit
+fit$scaling
+fit$means
+fit$posterior
+
+
+# make predictions
+predictions <- predict(fit, iris[,1:4])$class
+# summarize accuracy
+table(predictions, iris$Species)
+```
+
+
+```{r}
+colnames(df2classify)
+df2classify
+```
+
