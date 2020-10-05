@@ -45,6 +45,23 @@ data.all$is.young[data.all$age >= 60] = 0
 data.all$is.young <- as.factor(data.all$is.young)
 ```
 
+correct item actions_livealone, actions_houshold
+```{r}
+mask <- data.all$age >= 60
+
+# should be actions_household, actions_live alone
+# but for olde (>=60), it is switched
+livealone_old <- data.all$actions_household[mask]
+household_old <- data.all$actions_livealone[mask]
+
+livealone_old
+household_old
+
+data.all$actions_livealone[mask] <- livealone_old
+data.all$actions_household[mask] <- household_old
+```
+
+
 Clean zipcode
 ```{r}
 # clean zipcode
@@ -174,7 +191,8 @@ for (i in 1:nrow(data.classify)) {
     any(is.element(c("6", "7"), items)) ~ "3",
     any(is.element(c("8"), items)) ~ "4",
     any(is.element(c("9"), items)) ~ "5",
-    any(is.element(c("10", "11"), items)) ~ "6"
+    any(is.element(c("10", "11"), items)) ~ "6",
+    any(is.element(c("12"), items)) ~ "7"
   )
     
 }
@@ -197,7 +215,8 @@ for (i in 1:nrow(data.classify)) {
     any(is.element(c("6", "7"), items)) ~ "3",
     any(is.element(c("8"), items)) ~ "4",
     any(is.element(c("9"), items)) ~ "5",
-    any(is.element(c("10", "11"), items)) ~ "6"
+    any(is.element(c("10", "11"), items)) ~ "6",
+    any(is.element(c("12"), items)) ~ "7"
   )
     
 }
@@ -231,10 +250,19 @@ What impact do you think the outbreak will have on your household earnings this 
 6-Moderately increase
 7-Significantly increase
 
+
 ## medical insurance
 Are you currently covered by medical insurance?
 1-Yes
-2-No
+2/3-No
+(In young survey, no is coded as 2; in the older survey, no is coded as 3)
+```{r}
+data.classify$medical.insurance <- as.character(data.classify$medical.insurance)
+data.classify$medical.insurance[data.classify$medical.insurance=="2"] <- "0"
+data.classify$medical.insurance[data.classify$medical.insurance=="3"] <- "0"
+data.classify
+```
+
 
 ## income last year
 What was the total income of your household during the last year, in your own currency?
@@ -370,6 +398,15 @@ How much do you think your daily life has been affected by the COVID-19 outbreak
 7-Moderately unlikely
 8-Extremely unlikely
 9-I don't know
+```{r}
+data.classify$ambig3_you_infect <- as.character(data.classify$ambig3_you_infect)
+data.classify$ambig3_you_infect[data.classify$ambig3_you_infect=="9"] <- NA
+
+data.classify$ambig3_family_infect <- as.character(data.classify$ambig3_family_infect)
+data.classify$ambig3_family_infect[data.classify$ambig3_family_infect=="9"] <- NA
+
+data.classify
+```
 
 ## feel if infected
 If you were to be infected with COVID-19, how do you think you would feel?
@@ -384,6 +421,14 @@ Not at all unwell
 1-No
 2-Yes, domestically. If so, when? (Format: mm/dd/yyyy)
 3-Yes, internationally. If so, when? (Format: mm/dd/yyyy)
+```{r}
+data.classify$RE_travel_3weeks <- as.character(data.classify$RE_travel_3weeks)
+data.classify$RE_travel_3weeks[data.classify$RE_travel_3weeks=="1"] <- "0"
+data.classify$RE_travel_3weeks[data.classify$RE_travel_3weeks=="2"] <- "1"
+data.classify$RE_travel_3weeks[data.classify$RE_travel_3weeks=="3"] <- "1"
+
+```
+
 
 ## know any people at risk
 Positive test, healthcare worker, above 70, chronic, pregnant
@@ -436,12 +481,17 @@ Are you practicing social distancing?
 # change column name
 data.classify <- rename(data.classify, actions_socialdist = Q1089, actions_socialdist_method = Q1091)
 
-data.classify <- data.classify %>% mutate_at(c("actions_socialdist_method"), as.character)
+data.classify <- data.classify %>% mutate_at(c("actions_socialdist", "actions_socialdist_method"), as.character)
+
+data.classify$actions_socialdist[data.classify$actions_socialdist=="2"] <- "0"
+data.classify$actions_socialdist[data.classify$actions_socialdist=="3"] <- "0"
+
 
 data.classify <- data.classify %>% mutate_at(c("actions_socialdist_method"), strsplit, split=",")
 
 data.classify <- data.classify %>% mutate_at(c("actions_socialdist_method"), lengths)
 
+data.classify
 ```
 
 
@@ -475,17 +525,46 @@ Do you live alone
 2-No, I live with family
 3-No, I live with roommate(s)
 
+In the older survey, the order of actions_livealone and actions_household are switched, need to correct it.
+```{r}
+data.classify$actions_livealone <- as.character(data.classify$actions_livealone)
+data.classify$actions_livealone[data.classify$actions_livealone=="2"] <- "0"
+data.classify$actions_livealone[data.classify$actions_livealone=="3"] <- "0"
+
+data.classify$actions_livealone
+data.classify$actions_household
+```
+
+
+
 Do you have family or friends to contact in case of emergency?
 1-Yes
 2-No
+```{r}
+data.classify$actions_emergency <- as.character(data.classify$actions_emergency)
+data.classify$actions_emergency[data.classify$actions_emergency=="2"] <- "0"
+data.classify$actions_emergency
+```
+
 
 Are there any children in your household?
 1-Yes
 2-No
+```{r}
+data.classify$actions_child <- as.character(data.classify$actions_child)
+data.classify$actions_child[data.classify$actions_child=="2"] <- "0"
+data.classify$actions_child
+```
+
 
 Are there any older adults (over 70) in your household?
 1-Yes
 2-No
+```{r}
+data.classify$actions_adult70 <- as.character(data.classify$actions_adult70)
+data.classify$actions_adult70[data.classify$actions_adult70=="2"] <- "0"
+data.classify$actions_adult70
+```
 
 ## gathering
 When were you most recently in a gathering of more than XX-XX people (including family gathering, religious services, attending meetings etc).
@@ -504,7 +583,7 @@ When were you most recently in a gathering of more than XX-XX people (including 
 4-A fair amount
 5-Much
 6-Very much
-7Extremely
+7-Extremely
 
 How much anxiety is influencedd by XX
 1-Not at all
@@ -519,6 +598,15 @@ How much anxiety is influencedd by XX
 ## medical history
 1-no
 2-yes
+```{r}
+data.classify <- data.classify %>% mutate_at(c("pastmed_you_ill", "pastmed_family_ill", "pastmed_pastpandemic"), as.character)
+
+data.classify$pastmed_you_ill[data.classify$pastmed_you_ill=="2"] <- "0"
+
+data.classify$pastmed_family_ill[data.classify$pastmed_family_ill=="2"] <- "0"
+
+data.classify$pastmed_pastpandemic[data.classify$pastmed_pastpandemic=="2"] <- "0"
+```
 
 ## other demographic
 Ethnicity
@@ -614,6 +702,58 @@ OUS
 5-Somewhat agree
 6-Agree
 7-Strongly agree
+
+## correct column types
+turn likert scales into numeric
+```{r}
+data.classify <- mutate_at(data.classify,
+                           c("household.earnings", "medical.insurance",
+                             "ambig1_news_sources_1", "ambig1_news_sources_2", "ambig1_news_sources_3", "ambig1_news_sources_4", "ambig1_news_sources_5", "ambig1_news_sources_6", "ambig1_news_sources_7", 
+                             "ambig1_gov_local", 
+                             "ambig1_sourcebelief_1", "ambig1_sourcebelief_2", "ambig1_sourcebelief_3", "ambig1_sourcebelief_4", "ambig1_sourcebelief_5", "ambig1_sourcebelief_6", 
+                             "ambig1_news_before", "ambig1_news_perday", 
+                             "ambig1_you", "ambig1_gov_national", "ambig1_scientists", "ambig1_health_worker", "ambig1_economists", "ambig1_family_friend", 
+                             "ambig1_track_deaths", 
+                             "ambig1_react_nation", "ambig1_react_state", "ambig1_react_science", "ambig1_react_worker", "ambig1_react_econ", "ambig1_react_you", 
+                             "ambig2_health_impact", "ambig2_economics",  
+                             "ambig3_current_covi1", "ambig3_current_covi2", "ambig3_daily_affect", "ambig3_you_infect", "ambig3_family_infect", "ambig3_feel_infect", 
+                             "RE_travel_3weeks","actions_socialdist",
+                             "actions_livealone", "actions_emergency", "actions_child", "actions_adult70", 
+                             "pastmed_you_ill", "pastmed_family_ill", "pastmed_pastpandemic",
+                             "actions_washinghands", "actions_checkbodtemp", "actions_diningout", "actions_goingtowork", "actions_goingschoo", "actions_religiousser", "actions_fam_inperson", "actions_fam_virtual", "actions_consumenews", "actions_usepubtrans", "actions_stocsupplies", "actions_stocmed", "actions_gethaircut", "actions_physicalser", "actions_gro_toiletpp", "actions_gro_pptowels", "actions_gro_fresfood", "actions_gro_npfood", "actions_gro_water", "actions_gro_hygiene", "actions_household", 
+                             "actions_gather2to9", "actions_gather10to49", "actions_gather50to99", "actions_gather100", 
+                             "anx_feelingnow", "anx_TVnewspaper", "anx_socialmedia", "anx_familyreaction", "anx_friendreaction", "anx_colleaguereact", "anx_companypolicy", "anx_citystatepolicy", "anx_nationalpolicy", 
+                             "highest_education", "feeling_right_now", 
+                             "interest_in_politics", "political_typology", 
+                             "belief_in_God", "religiosity_rating", 
+                             "OUS1", "OUS2", "OUS3", "OUS4", "OUS5", "OUS6", "OUS7", "OUS8", "OUS9", "OUS10"),
+                           as.character)
+
+data.classify <- mutate_at(data.classify,
+                           c("household.earnings", "medical.insurance",
+                             "ambig1_news_sources_1", "ambig1_news_sources_2", "ambig1_news_sources_3", "ambig1_news_sources_4", "ambig1_news_sources_5", "ambig1_news_sources_6", "ambig1_news_sources_7", 
+                             "ambig1_gov_local", 
+                             "ambig1_sourcebelief_1", "ambig1_sourcebelief_2", "ambig1_sourcebelief_3", "ambig1_sourcebelief_4", "ambig1_sourcebelief_5", "ambig1_sourcebelief_6", 
+                             "ambig1_news_before", "ambig1_news_perday", 
+                             "ambig1_you", "ambig1_gov_national", "ambig1_scientists", "ambig1_health_worker", "ambig1_economists", "ambig1_family_friend", 
+                             "ambig1_track_deaths", 
+                             "ambig1_react_nation", "ambig1_react_state", "ambig1_react_science", "ambig1_react_worker", "ambig1_react_econ", "ambig1_react_you", 
+                             "ambig2_health_impact", "ambig2_economics",  
+                             "ambig3_current_covi1", "ambig3_current_covi2", "ambig3_daily_affect", "ambig3_you_infect", "ambig3_family_infect", "ambig3_feel_infect", 
+                             "RE_travel_3weeks","actions_socialdist",
+                             "actions_livealone", "actions_emergency", "actions_child", "actions_adult70", 
+                             "pastmed_you_ill", "pastmed_family_ill", "pastmed_pastpandemic",
+                             "actions_washinghands", "actions_checkbodtemp", "actions_diningout", "actions_goingtowork", "actions_goingschoo", "actions_religiousser", "actions_fam_inperson", "actions_fam_virtual", "actions_consumenews", "actions_usepubtrans", "actions_stocsupplies", "actions_stocmed", "actions_gethaircut", "actions_physicalser", "actions_gro_toiletpp", "actions_gro_pptowels", "actions_gro_fresfood", "actions_gro_npfood", "actions_gro_water", "actions_gro_hygiene", "actions_household", 
+                             "actions_gather2to9", "actions_gather10to49", "actions_gather50to99", "actions_gather100", 
+                             "anx_feelingnow", "anx_TVnewspaper", "anx_socialmedia", "anx_familyreaction", "anx_friendreaction", "anx_colleaguereact", "anx_companypolicy", "anx_citystatepolicy", "anx_nationalpolicy", 
+                             "highest_education", "feeling_right_now", 
+                             "interest_in_politics", "political_typology", 
+                             "belief_in_God", "religiosity_rating", 
+                             "OUS1", "OUS2", "OUS3", "OUS4", "OUS5", "OUS6", "OUS7", "OUS8", "OUS9", "OUS10"),
+                           as.integer)
+
+data.classify
+```
 
 
 ## zipcode
