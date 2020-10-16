@@ -1,8 +1,12 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "preprocess"
 author: ruonanjia
 ---
+
+```{r}
+rm(list = ls())
+```
+
 
 read data
 ```{r}

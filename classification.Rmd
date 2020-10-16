@@ -185,15 +185,21 @@ for (i in 1:nrow(data.classify)) {
   
   items <- unlist(data.classify$employment_before[i])
   
+  # data.classify$employment_before[i] <- case_when(
+  #   any(is.element(c("1", "2", "3", "4"), items)) ~ "1",
+  #   any(is.element(c("5"), items)) ~ "2",
+  #   any(is.element(c("6", "7"), items)) ~ "3",
+  #   any(is.element(c("8"), items)) ~ "4",
+  #   any(is.element(c("9"), items)) ~ "5",
+  #   any(is.element(c("10", "11"), items)) ~ "6",
+  #   any(is.element(c("12"), items)) ~ "7"
+  # )
+  
+  # reduce factor, 1-employed, 0-unemployed
   data.classify$employment_before[i] <- case_when(
     any(is.element(c("1", "2", "3", "4"), items)) ~ "1",
-    any(is.element(c("5"), items)) ~ "2",
-    any(is.element(c("6", "7"), items)) ~ "3",
-    any(is.element(c("8"), items)) ~ "4",
-    any(is.element(c("9"), items)) ~ "5",
-    any(is.element(c("10", "11"), items)) ~ "6",
-    any(is.element(c("12"), items)) ~ "7"
-  )
+    any(is.element(c("5", "6", "7", "8", "9", "10", "11", "12"), items)) ~ "0"
+  )  
     
 }
 
@@ -209,16 +215,22 @@ for (i in 1:nrow(data.classify)) {
   
   items <- unlist(data.classify$employment_current[i])
   
+  # data.classify$employment_current[i] <- case_when(
+  #   any(is.element(c("1", "2", "3", "4"), items)) ~ "1",
+  #   any(is.element(c("5"), items)) ~ "2",
+  #   any(is.element(c("6", "7"), items)) ~ "3",
+  #   any(is.element(c("8"), items)) ~ "4",
+  #   any(is.element(c("9"), items)) ~ "5",
+  #   any(is.element(c("10", "11"), items)) ~ "6",
+  #   any(is.element(c("12"), items)) ~ "7"
+  # )
+    
+  # reduce factor, 1-employed, 0-unemployed
   data.classify$employment_current[i] <- case_when(
     any(is.element(c("1", "2", "3", "4"), items)) ~ "1",
-    any(is.element(c("5"), items)) ~ "2",
-    any(is.element(c("6", "7"), items)) ~ "3",
-    any(is.element(c("8"), items)) ~ "4",
-    any(is.element(c("9"), items)) ~ "5",
-    any(is.element(c("10", "11"), items)) ~ "6",
-    any(is.element(c("12"), items)) ~ "7"
-  )
-    
+    any(is.element(c("5", "6", "7", "8", "9", "10", "11", "12"), items)) ~ "0"
+  ) 
+  
 }
 
 
@@ -829,17 +841,31 @@ id <- df2classify$mTurkCode
 df2classify <- dplyr :: select(
   df2classify, 
   
-  -c(zip, mTurkCode, ambig1_b4restrict, ambig1_b4_rs_state1,
+  -c(zip, mTurkCode,
+     ambig1_b4restrict, ambig1_b4_rs_state1,
      ambig1_ip_national, ambig1_ip_yes,
      actions_goingtowork, actions_goingschoo, actions_religiousser, actions_usepubtrans,
      risk.mon, ambig_corr.mon, risk.med, ambig_corr.med, error.mon, error.med, is.young, city, latitude, longitude,
      # below items do not have too much variability
-     pastmed_you_ill, pastmed_family_ill, pastmed_pastpandemic, actions_gather50to99, actions_gather10to49, actions_socialdist, RE_know_postest
+     pastmed_you_ill, pastmed_family_ill, pastmed_pastpandemic, actions_gather50to99, actions_gather10to49, actions_socialdist, RE_know_postest, 
+     # below items have too many levels. CONSIDER REFACTOR
+     employment_before,employment_current,
+     ethnicity, marital_status, field_of_education, state
      )
   
   )
+
+df2classify
 ```
 
+```{r}
+# remove NaN rows
+nrow(df2classify)
+
+df2classify <- df2classify[complete.cases(df2classify), ]
+
+nrow(df2classify)
+```
 
 
 # classification
@@ -856,7 +882,7 @@ ggplot(df2classify, aes(x=age, y=income_last.year,color=risk.mon.label, fill=ris
 ```{r}
 nrow(df2classify)
 
-n_train = 230
+n_train = 150
 n_test = nrow(df2classify)-n_train
 
 n_train
@@ -881,13 +907,21 @@ glm.fit=glm(risk.mon.label~.,
 
 summary(glm.fit)$coef
 
-glm.predict <- predict(glm.fit, type="response")
-class.predict <- case_when(glm.predict < 0.5 ~ 0,
-                           glm.predict >= 0.5 ~ 1)
+# train accuracy
+train.predict <- predict(glm.fit, type="response")
+class.train.predict <- case_when(train.predict < 0.5 ~ 0,
+                                 train.predict >= 0.5 ~ 1)
 
-mean(class.predict == train$risk.mon.label)
+mean(class.train.predict == train$risk.mon.label, na.rm=TRUE)
 
+# test accuracy
 test.predict <- predict(glm.fit, test, type="response")
+
+class.rest.predict <- case_when(test.predict < 0.5 ~ 0,
+                                test.predict >= 0.5 ~ 1)
+
+mean(class.rest.predict == test$risk.mon.label, na.rm=TRUE)
+
 ```
 
 

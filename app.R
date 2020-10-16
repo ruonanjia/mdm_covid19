@@ -202,9 +202,10 @@ ui <- dashboardPage(
   
   dashboardSidebar(
     sidebarMenu(
-      menuItem("Demographics", tabName = "demograph", icon = icon("database")),
+      menuItem("Demographics", tabName = "demograph", icon = icon("users")),
       menuItem("Task behavior", tabName = "att", icon = icon("chart-bar")),
-      menuItem("PCA of Ambiguity Survey", tabName = "pca", icon=icon("chart-bar"))
+      menuItem("Age difference", tabName = "age", icon=icon("chart-line")),
+      menuItem("PCA of Ambiguity Survey", tabName = "pca", icon=icon("list-alt"))
     )
   ),
   
@@ -241,21 +242,47 @@ ui <- dashboardPage(
                                 selected = "Ambiguity Attitude Monetary"
                 ), height=80),
                 
-                box(title = "Distribution of the 1st uncertainty attitudes",
+                # distribution
+                box(title = "Distribution of the 1st uncertainty attitude",
                     plotOutput("plot_att1_distrib", height = 250)),
-                
-                box(title = "Distribution of the 2nd uncertainty attitudes",
+                box(title = "Distribution of the 2nd uncertainty attitude",
                     plotOutput("plot_att2_distrib", height = 250)),
                 
+                # correlation
                 box(title = "Correlation between uncertainty attitudes",
                     plotOutput("plot_att_corr", height = 250)),
-                
                 box(title = "Correlation between uncertainty attitudes, separated by age",
                     plotOutput("plot_att_corr_age", height = 250))
+                
+                # # correlation test
+                # box(title = "Pearson correlation test",
+                #     textOutput("att_corr_test")),
+                # box(title = "Pearson correlation test, separated by age",
+                #     textOutput("att_corr_test"))
                 
               
               )
               ),
+      
+      tabItem(tabName="age",
+              
+              fluidRow(
+                
+                box(textOutput("title"), height = 80),
+                
+                box(selectInput("var_name", "Choose a variable to visualize age difference:",
+                                list("Ambiguity Attitude Medical","Risk Attitude Medical",
+                                     "Ambiguity Attitude Monetary", "Risk Attitude Monetary"),
+                                selected = "Ambiguity Attitude Medical"
+                                ),
+                    height = 80
+                    ),
+                
+                box(plotOutput("plot_age_corr", height = 300)),
+                
+                box(plotOutput("plot_age_corr_separate", height = 300))
+                
+              )),
       
       tabItem(tabName="pca",
               # Boxes need to be put in a row (or column)
@@ -433,6 +460,62 @@ server <- function(input, output) {
             legend.background = element_blank(),
             legend.position = c(0.3, 0.8))
   })
+  
+  # output$att_corr_test <- renderText({
+  #   # select variables
+  #   att_name=c(input$att1_name,input$att2_name)
+  #   
+  #   var = case_when(
+  #     att_name == "Ambiguity Attitude Medical" ~ "ambig_corr.med",
+  #     att_name == "Ambiguity Attitude Monetary" ~ "ambig_corr.mon",
+  #     att_name == "Risk Attitude Medical" ~ "risk.med",
+  #     att_name == "Risk Attitude Monetary" ~ "risk.mon"
+  #   )
+  #   
+  #   cor.test(~eval(parse(text = var[1])) + eval(parse(text = var[2])),
+  #                         data=data_pca[mask_med,], method="pearson")
+  #   
+  # })
+  
+  
+  # correlation between a variable and age
+  output$title <- renderText("Age difference by correlation")
+  
+  output$plot_age_corr <- renderPlot({
+    var = case_when(
+      input$var_name == "Ambiguity Attitude Medical" ~ "ambig_corr.med",
+      input$var_name == "Ambiguity Attitude Monetary" ~ "ambig_corr.mon",
+      input$var_name == "Risk Attitude Medical" ~ "risk.med",
+      input$var_name == "Risk Attitude Monetary" ~ "risk.mon"
+    )
+    
+    ggplot(data.all[mask_med & mask_mon,], aes(x=age, y=eval(parse(text=var)))) + 
+      geom_point()+
+      geom_smooth(method="lm") +
+      xlab("Age") + ylab(input$var_name)
+    
+  })
+
+  output$plot_age_corr_separate <- renderPlot({
+    var = case_when(
+      input$var_name == "Ambiguity Attitude Medical" ~ "ambig_corr.med",
+      input$var_name == "Ambiguity Attitude Monetary" ~ "ambig_corr.mon",
+      input$var_name == "Risk Attitude Medical" ~ "risk.med",
+      input$var_name == "Risk Attitude Monetary" ~ "risk.mon"
+    )
+    
+    ggplot(data.all[mask_med & mask_mon,], aes(x=age, y=eval(parse(text=var)),color=is.young)) +
+      geom_point()+
+      geom_smooth(method="lm") +
+      scale_fill_discrete(name="Age", breaks=c(1,0), labels=c('Younger (below 60)','Older (above and including 60)')) +
+      scale_color_discrete(name="Age", breaks=c(1,0), labels=c('Younger (below 60)','Older (above and including 60)')) +
+      xlab("Age") + ylab(input$var_name) +
+      theme(legend.text = element_text(size=10),
+            legend.title = element_text(size=9),
+            legend.background = element_blank(),
+            legend.position = "top")
+    
+  })  
   
   output$plot_var <- renderPlot({
     
