@@ -45,22 +45,6 @@ data.all$is.young[data.all$age >= 60] = 0
 data.all$is.young <- as.factor(data.all$is.young)
 ```
 
-correct item actions_livealone, actions_houshold
-```{r}
-mask <- data.all$age >= 60
-
-# should be actions_household, actions_live alone
-# but for olde (>=60), it is switched
-livealone_old <- data.all$actions_household[mask]
-household_old <- data.all$actions_livealone[mask]
-
-livealone_old
-household_old
-
-data.all$actions_livealone[mask] <- livealone_old
-data.all$actions_household[mask] <- household_old
-```
-
 
 Clean zipcode
 ```{r}
@@ -289,6 +273,7 @@ data.classify$income_last.year <- as.character(data.classify$income_last.year)
 library(readr)
 data.classify$income_last.year <- parse_number(data.classify$income_last.year)
 
+data.classify
 ```
 
 ## news source
@@ -537,7 +522,7 @@ Do you live alone
 2-No, I live with family
 3-No, I live with roommate(s)
 
-In the older survey, the order of actions_livealone and actions_household are switched, need to correct it.
+In the older survey, the order of actions_livealone and actions_household are switched, need to correct it. Solved it in the preprocessing step
 ```{r}
 data.classify$actions_livealone <- as.character(data.classify$actions_livealone)
 data.classify$actions_livealone[data.classify$actions_livealone=="2"] <- "0"
@@ -555,7 +540,7 @@ Do you have family or friends to contact in case of emergency?
 ```{r}
 data.classify$actions_emergency <- as.character(data.classify$actions_emergency)
 data.classify$actions_emergency[data.classify$actions_emergency=="2"] <- "0"
-data.classify$actions_emergency
+# data.classify$actions_emergency
 ```
 
 
@@ -565,7 +550,7 @@ Are there any children in your household?
 ```{r}
 data.classify$actions_child <- as.character(data.classify$actions_child)
 data.classify$actions_child[data.classify$actions_child=="2"] <- "0"
-data.classify$actions_child
+# data.classify$actions_child
 ```
 
 
@@ -575,7 +560,7 @@ Are there any older adults (over 70) in your household?
 ```{r}
 data.classify$actions_adult70 <- as.character(data.classify$actions_adult70)
 data.classify$actions_adult70[data.classify$actions_adult70=="2"] <- "0"
-data.classify$actions_adult70
+# data.classify$actions_adult70
 ```
 
 ## gathering
@@ -719,7 +704,7 @@ OUS
 turn likert scales into numeric
 ```{r}
 data.classify <- mutate_at(data.classify,
-                           c("household.earnings", "medical.insurance",
+                           c("household.earnings",
                              "ambig1_news_sources_1", "ambig1_news_sources_2", "ambig1_news_sources_3", "ambig1_news_sources_4", "ambig1_news_sources_5", "ambig1_news_sources_6", "ambig1_news_sources_7", 
                              "ambig1_gov_local", 
                              "ambig1_sourcebelief_1", "ambig1_sourcebelief_2", "ambig1_sourcebelief_3", "ambig1_sourcebelief_4", "ambig1_sourcebelief_5", "ambig1_sourcebelief_6", 
@@ -742,7 +727,7 @@ data.classify <- mutate_at(data.classify,
                            as.character)
 
 data.classify <- mutate_at(data.classify,
-                           c("household.earnings", "medical.insurance",
+                           c("household.earnings",
                              "ambig1_news_sources_1", "ambig1_news_sources_2", "ambig1_news_sources_3", "ambig1_news_sources_4", "ambig1_news_sources_5", "ambig1_news_sources_6", "ambig1_news_sources_7", 
                              "ambig1_gov_local", 
                              "ambig1_sourcebelief_1", "ambig1_sourcebelief_2", "ambig1_sourcebelief_3", "ambig1_sourcebelief_4", "ambig1_sourcebelief_5", "ambig1_sourcebelief_6", 
@@ -835,6 +820,31 @@ ggplot(df2classify, aes(x=risk.mon, fill=risk.mon.label)) +
   geom_histogram()
 ```
 
+## select items to classify
+
+### missing data
+actions_checkbodtemp, actions_diningout, 
+     actions_goingtowork, actions_goingschoo, actions_religiousser, actions_usepubtrans,
+```{r}
+# remove NaN rows
+nrow(df2classify)
+
+df2classify <- df2classify[complete.cases(df2classify), ]
+
+temp <- df2classify[complete.cases(df2classify), ]
+nrow(temp)
+
+nrow(df2classify)
+
+# check columns with too many missing rows
+
+missing_col <- sapply(df2classify, function(x) sum(is.na(x)))
+missing_row <- rowSums(is.na(df2classify))
+missing_row
+View(missing_col)
+```
+
+
 ```{r}
 id <- df2classify$mTurkCode
 
@@ -842,31 +852,24 @@ df2classify <- dplyr :: select(
   df2classify, 
   
   -c(zip, mTurkCode,
+     ambig1_gov_local,
      ambig1_b4restrict, ambig1_b4_rs_state1,
      ambig1_ip_national, ambig1_ip_yes,
-     actions_goingtowork, actions_goingschoo, actions_religiousser, actions_usepubtrans,
+     ambig1_react_state,
+     ambig3_current_covi2,
+     ambig3_family_infect,
      risk.mon, ambig_corr.mon, risk.med, ambig_corr.med, error.mon, error.med, is.young, city, latitude, longitude,
      # below items do not have too much variability
      pastmed_you_ill, pastmed_family_ill, pastmed_pastpandemic, actions_gather50to99, actions_gather10to49, actions_socialdist, RE_know_postest, 
      # below items have too many levels. CONSIDER REFACTOR
-     employment_before,employment_current,
      ethnicity, marital_status, field_of_education, state
      )
   
   )
 
 df2classify
+
 ```
-
-```{r}
-# remove NaN rows
-nrow(df2classify)
-
-df2classify <- df2classify[complete.cases(df2classify), ]
-
-nrow(df2classify)
-```
-
 
 # classification
 

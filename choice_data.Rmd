@@ -1,6 +1,8 @@
 ---
 title: "R Notebook"
 author: "ruonanjia"
+output:
+  html_document: default
 ---
 
 ```{r}
@@ -60,7 +62,7 @@ data_meanse <- function(x) {
 ```
 
 
-load data
+# load data
 ```{r}
 # setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
 setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
@@ -88,7 +90,7 @@ colnames(data.all)
 ```
 
 
-estimation of ambiguity
+# estimation of ambiguity
 ```{r}
 data.all$AmbigE_posoutcome_38 <- as.numeric(as.character(data.all$AmbigE_posoutcome_38))
 data.all$AmbigE_posoutcome_25 <- as.numeric(as.character(data.all$AmbigE_posoutcome_25))
@@ -195,7 +197,7 @@ lmer(estimate ~ age + 1|mTurkCode,
      )
 ```
 
-## outcome rating
+# outcome rating
 organize outcome rating
 ```{r}
 mask <- data.all$error.med < 0.5 & data.all$error.mon < 0.5
@@ -269,7 +271,7 @@ ggplot(outcome.rating[outcome.rating$is.med == 0,], aes(x = as.numeric(outcome.l
   theme(legend.position = "none")
 ```
 
-task data
+## take out task data
 ```{r}
 # colnames(data.all)
 colnames(data.all)[c(30:42,44:55,57:80,90:102,104:114,116:140,141:150,152:155,1)]
@@ -334,7 +336,17 @@ save(data.choice.med, file="data_choice_med_444sub.Rda")
 ```
 
 
-Plot average choice probability by uncertainty level
+# Choice data
+
+```{r}
+setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
+path = "/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data"
+load("data_choice_mon_444sub.Rda")
+load("data_choice_med_444sub.Rda")
+
+```
+
+## Plot average choice probability by uncertainty level
 ```{r}
 # # monetary
 # ggplot(data.choice.mon[data.choice.mon$id == id & data.choice.mon$ambig == 0, ], aes(x = val, y = choice, color = prob, fill = prob)) + 
@@ -388,7 +400,7 @@ ggplot(data_plot, aes(x=ambig, y=choice)) +
 
 ```
 
-plot average choice probability by value
+## plot average choice probability by value
 ```{r}
 # monetary risky
 data_plot <- data_summary(data.choice.mon[data.choice.mon$ambig == 0,], varname = "choice", groupnames = "val")
@@ -428,7 +440,7 @@ ggplot(data_plot, aes(x=val, y=choice)) +
 ```
 
 
-individual subject choice data model free attitude
+## individual subject choice data model free attitude
 ```{r}
 # id_idx = 1
 ids <- data.task$mTurkCode
@@ -665,7 +677,7 @@ ggplot(data2plot, aes(x = ambig.level, y = choice.mean)) +
 
 
 
-plot individual subject choice data
+## plot individual subject choice data
 ```{r}
 # id_idx = 1
 ids <- data.task$mTurkCode
@@ -682,19 +694,19 @@ for (id in ids) {
   
   p1 <- ggplot(data_plot, aes(x=val, y=prob, fill=choice)) + 
     geom_tile(color = "white")+
-    scale_x_discrete(breaks = c(5,8,12,25)) +
+    scale_x_discrete(breaks = c(500,800,1200,2500)) +
     scale_fill_gradient(limits = c(0,1)) +
     theme(panel.grid = element_blank(),
           panel.background = element_blank()) +
     ggtitle(paste("Monetary Risky, Sub", as.character(id))) +
-    xlab("Value ($)") + ylab("Risk Level")
+    xlab("Value ($)") + ylab("Probability Level")
   
   # monetary ambiguous
   data_plot <- data_summary(sub.mon[sub.mon$ambig != 0,], varname = "choice", groupnames = c("val", "ambig"))
   
   p2 <- ggplot(data_plot, aes(x=val, y=ambig, fill=choice)) + 
     geom_tile(color = "white")+
-    scale_x_discrete(breaks = c(5,8,12,25)) +
+    scale_x_discrete(breaks = c(500,800,1200,2500)) +
     scale_fill_gradient(limits = c(0,1)) +
     theme(panel.grid = element_blank(),
           panel.background = element_blank()) +
@@ -711,7 +723,7 @@ for (id in ids) {
     theme(panel.grid = element_blank(),
           panel.background = element_blank()) +
     ggtitle("Medical Risky") +
-    xlab("Outcome") + ylab("Risk Level")
+    xlab("Outcome") + ylab("Probability Level")
   
   # medical ambiguous
   data_plot <- data_summary(sub.med[sub.med$ambig != 0,], varname = "choice", groupnames = c("val", "ambig"))
@@ -903,9 +915,9 @@ data_list <- list(
 )
 ```
 
-select subjects
+#### select subjects
 ```{r}
-n_try = 50#  number of subjects to try
+n_try = 150#  number of subjects to try
 start = 1# start from the nth participant
 data_list <- list(
   choice = data.choice.mon$choice[(no_trials*(start-1) + 1):((start + n_try-1)*no_trials)],
@@ -1025,12 +1037,13 @@ fit.choice.nopool <- map2stan(
 
 Look at model fitting result
 ```{r}
-par.nopool <- data.frame(precis(fit.choice.nopool, depth=2))
+par.nopool <- data.frame(precis(fit.choice.nopool.ulam, depth=2))
 # str(fit.choice)
 plot(fit.choice.nopool)
 traceplot(fit.choice.nopool.ulam)
 
-plot(precis(fit.choice.nopool.ulam))
+
+plot(precis(fit.choice.nopool.ulam, depth=2))
 View(fit.choice.nopool.ulam)
 # View(par.nopool)
 ```
@@ -1096,8 +1109,8 @@ fit.choice.partpool <- ulam(
     # slope[id] ~ dnorm(1, 3)        
     
     # group level priors
+    miu_a ~ dnorm(0.5, 0.2),
     # miu_a ~ dlnorm(-0.5, 0.2),
-    miu_a ~ dlnorm(-0.5, 0.2),
     sigma_a ~ dexp(2),
     # sigma_a ~ dhalfnorm(0,1),
 
@@ -1112,11 +1125,13 @@ fit.choice.partpool <- ulam(
     
   ), 
   data = data_list, iter = 1e3, chains=3,
-  start=list(miu_a=0.7, miu_b=0.7, miu_s=0.8, sigma_a = 0.5, sigma_b = 0.5, sigma_s = 0.5),
+  start=list(miu_a=0.5, miu_b=0.5, miu_s=1, sigma_a = 1, sigma_b = 1, sigma_s = 1),
   control=list(adapt_delta=0.95)
 )
 
 ```
+
+
 
 Use map2stan
 ```{r}
@@ -1158,6 +1173,8 @@ fit.choice.partpool <- map2stan(
   control=list(adapt_delta=0.95)
 )
 ```
+
+
 
 
 Re-parameterize
@@ -1234,11 +1251,27 @@ fit.choice.partpool.repar <- map2stan(
 Look at model fitting result
 ```{r}
 par.partpool <- data.frame(precis(fit.choice.partpool, depth=2))
+traceplot(fit.choice.partpool)
+plot(precis(fit.choice.partpool, depth=2))
+
 # str(fit.choice)
 par.partpool.repar <- data.frame(precis(fit.choice.partpool.repar, depth=2))
 View(par.partpool)
 # View(par.partpool.repar)
 
+```
+
+Look at model fitting result
+```{r}
+paropool <- data.frame(precis(fit.choice.nopool.ulam, depth=2))
+# str(fit.choice)
+plot(fit.choice.nopool)
+traceplot(fit.choice.nopool.ulam)
+
+
+plot(precis(fit.choice.nopool.ulam, depth=2))
+View(fit.choice.nopool.ulam)
+# View(par.nopool)
 ```
 
 ## Compare different fittings
@@ -1290,6 +1323,8 @@ partpool.repar <- data.frame(
 #   method=rep('partpool.repar', n_try)
 # )
 
+compare <- nopool
+compare <- rbind(nopool, partpool)
 compare <- rbind(nopool, partpool,partpool.repar)
 
 View(compare)
@@ -1301,7 +1336,7 @@ n_try
 
 
 ```{r}
-n_plot = 50
+n_plot = n_try
 
 ggplot(compare[is.element(compare$id, seq(1,n_plot)),], aes(x = id, y = alpha, color = method, fill = method)) + 
   geom_point(size = 3, alpha = 0.5)
@@ -1314,6 +1349,24 @@ ggplot(compare[is.element(compare$id, seq(1,n_plot)),], aes(x = id, y = slope, c
 
 # ggplot(partpool, aes(x = id, y = alpha)) + 
 #   geom_point(size = 3)
+```
+
+```{r}
+id_match <- unique(select(data.choice.mon, c("id", "subid")))
+id2compare <- id_match$id[1:n_try]
+id2compare
+data.attitude
+
+choice_mf <- data.attitude[is.element(data.attitude$mTurkCode, id2compare), ]
+
+# check if ids match
+plot(as.numeric(as.character(id2compare)), as.numeric(as.character(data.attitude$mTurkCode[is.element(data.attitude$mTurkCode, id2compare)])))
+     
+plot(choice_mf$risk.mon, compare$alpha[compare$method=="nopool"],
+     xlab="alpha", ylab="model-free risk attitude")
+
+plot(choice_mf$ambig_corr.mon, compare$alpha[compare$method=="nopool"],
+     xlab="beta", ylab="model-free ambiguity attitude")
 ```
 
 ## Age multilevel model
@@ -1344,7 +1397,7 @@ fit.choice.partpool.factor <- ulam(
     sigma_s ~ dexp(2)
 
   ), 
-  data = data_list, iter = 1e3, chains=3,
+  data = data_list, iter = 1e5, chains=3,
   start=list(slope_age=0, miu_a = 0.8, miu_b=0.7, miu_s=0.8, sigma_b = 0.5, sigma_s = 0.5),
   control=list(adapt_delta=0.95)
 )
@@ -1369,14 +1422,18 @@ partpool.factor<- data.frame(
 View(partpool.factor)
 ```
 
+```{r}
+data_list
+```
+
 Use map2stan
 ```{r}
 fit.choice.partpool.factor.2 <- map2stan(
   alist(
     choice ~ dbinom(1, choice_prob), # sample from bernoulli distribution
     logit(choice_prob) <- (uL-uR)*slope[id],
-    uL <- (prob - beta[id] * (ambig/2)) * val ^ (slope_age*age[id] + miu_a), # subjective value of the lottery
-    uR <- (prob_ref - beta[id] * (ambig_ref/2)) * val_ref ^ (slope_age*age[id] + miu_a), # subjective value of the reference
+    uL <- (prob - beta[id] * (ambig/2)) * val ^ (slope_age*age + miu_a), # subjective value of the lottery
+    uR <- (prob_ref - beta[id] * (ambig_ref/2)) * val_ref ^ (slope_age*age + miu_a), # subjective value of the reference
     
     beta[id] ~ dnorm(miu_b, sigma_b),
     slope[id] ~ dnorm(miu_s, sigma_s),
@@ -1394,8 +1451,29 @@ fit.choice.partpool.factor.2 <- map2stan(
     sigma_s ~ dexp(2)
 
   ), 
-  data = data_list, iter = 1e3, chains=3,
+  data = data_list, iter = 1e5, chains=4,
   start=list(slope_age=0, miu_a = 0.5, miu_b=0.7, miu_s=0.8, sigma_b = 0.5, sigma_s = 0.5),
   control=list(adapt_delta=0.95)
 )
 ```
+
+
+```{r}
+# for map2stan output
+partpool <- data.frame(
+  id=c(1:n_try),
+  alpha=par.partpool$mean[(1+6):(n_try+6)],
+  beta=par.partpool$mean[(n_try + 1+6):(2*n_try+6)],
+  slope=par.partpool$mean[(2*n_try + 1+6):(3*n_try+6)],
+  method=rep('partpool', n_try)
+)
+```
+
+```{r}
+fit.choice.partpool.factor.2
+View(fit.choice.partpool.factor.2)
+fit.choice.partpool.factor.2$coef
+plot(fit.choice.partpool.factor.2)
+precis(fit.choice.partpool.factor.2)
+```
+
