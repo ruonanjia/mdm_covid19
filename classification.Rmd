@@ -24,8 +24,8 @@ library(tidyverse)
 
 # load data
 ```{r}
-# setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
-setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/mdm_covid19_data")
+# setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
 load("data_all_444sub_rename.Rda")
 load("data_all_444sub_rename_header.Rda")
 load("data_all_444sub_attitude.Rda")
@@ -121,7 +121,7 @@ data.classify$gender[data.classify$gender=="1,3"] = "3"
 # data.classify %>% filter(gender=="1,2") %>% mutate(gender="3")
 # data.classify %>% filter(gender=="1,3") %>% mutate(gender="3")
 
-data.classify
+# data.classify
 # unique(data.classify$gender)
 ```
 
@@ -154,10 +154,7 @@ data.classify
 ```{r}
 # Recode:
 # Employed - 1,2,3,4
-# Housekeeping - 5
-# unemployed - 6,7
-# disabled - 8
-# retired - 9
+# Unemployed - 5,6,7,8,9, 12
 # student - 10,11
 
 # employment before
@@ -179,12 +176,18 @@ for (i in 1:nrow(data.classify)) {
   #   any(is.element(c("12"), items)) ~ "7"
   # )
   
+  # reduce factor, 1-employed, 0-unemployed, 2-student (only 2)
+  # data.classify$employment_before[i] <- case_when(
+  #   any(is.element(c("1", "2", "3", "4"), items)) ~ "1",
+  #   any(is.element(c("10","11"), items)) ~ "2",
+  #   any(is.element(c("5", "6", "7", "8", "9", "12"), items)) ~ "0"    
+  # )  
+    
   # reduce factor, 1-employed, 0-unemployed
   data.classify$employment_before[i] <- case_when(
     any(is.element(c("1", "2", "3", "4"), items)) ~ "1",
-    any(is.element(c("5", "6", "7", "8", "9", "10", "11", "12"), items)) ~ "0"
+    any(is.element(c("5", "6", "7", "8", "9", "10", "11" ,"12"), items)) ~ "0"    
   )  
-    
 }
 
 # check if the recoding is correct
@@ -212,7 +215,7 @@ for (i in 1:nrow(data.classify)) {
   # reduce factor, 1-employed, 0-unemployed
   data.classify$employment_current[i] <- case_when(
     any(is.element(c("1", "2", "3", "4"), items)) ~ "1",
-    any(is.element(c("5", "6", "7", "8", "9", "10", "11", "12"), items)) ~ "0"
+    any(is.element(c("5", "6", "7", "8", "9", "10", "11" ,"12"), items)) ~ "0"
   ) 
   
 }
@@ -222,7 +225,7 @@ data.classify <- data.classify %>% mutate_at(c("employment_before", "employment_
 
 data.classify <- data.classify %>% mutate_at(c("employment_before", "employment_current"), as.factor)
 
-data.classify
+# data.classify
 
 # tried without for loops, did not work:
 # data.classify$employment_before_refac <- vector(mode="character", length=nrow(data.classify))
@@ -233,6 +236,7 @@ data.classify
 # 
 # data.classify <- data.classify %>% mutate_cond(!is.na(match(employment_before, list("1"))), employment_before = list("1"))
 
+# sum(data.classify$employment_before==2)
 ```
 
 
@@ -256,7 +260,7 @@ Are you currently covered by medical insurance?
 data.classify$medical.insurance <- as.character(data.classify$medical.insurance)
 data.classify$medical.insurance[data.classify$medical.insurance=="2"] <- "0"
 data.classify$medical.insurance[data.classify$medical.insurance=="3"] <- "0"
-data.classify
+# data.classify
 ```
 
 
@@ -273,7 +277,7 @@ data.classify$income_last.year <- as.character(data.classify$income_last.year)
 library(readr)
 data.classify$income_last.year <- parse_number(data.classify$income_last.year)
 
-data.classify
+# data.classify
 ```
 
 ## news source
@@ -315,6 +319,14 @@ news_before and news_perday
 ## how well-informed
 ambigs1_you:family_friend
 
+1-Very well-informed
+2-Moderately well-informed
+3-Somewhat well-informed
+4-Uncertain
+5-Somewhat uninformed
+6-Moderately uninformed
+7-Very uninformed
+
 ## how long before removed
 ambig1_b4restrict, ambig_b4_rs_state1
 How long do you think it will be before government restrictions related to the COVID-19 pandemic will be completely removed
@@ -344,7 +356,7 @@ data.classify <- data.classify %>% mutate_at(c("ambig1_in_place", "ambig1_ip_yes
 
 data.classify <- data.classify %>% mutate_at(c("ambig1_in_place", "ambig1_ip_yes"), lengths)
 
-data.classify
+# data.classify
 ```
 
 ## how appropriate reaction
@@ -402,17 +414,17 @@ data.classify$ambig3_you_infect[data.classify$ambig3_you_infect=="9"] <- NA
 data.classify$ambig3_family_infect <- as.character(data.classify$ambig3_family_infect)
 data.classify$ambig3_family_infect[data.classify$ambig3_family_infect=="9"] <- NA
 
-data.classify
+# data.classify
 ```
 
 ## feel if infected
 If you were to be infected with COVID-19, how do you think you would feel?
 
-Extremely unwell
-Very unwell
-Moderately unwell
-Slightly unwell
-Not at all unwell
+1-Extremely unwell
+2-Very unwell
+3-Moderately unwell
+4-Slightly unwell
+5-Not at all unwell
 
 ## travel past 3 weeks
 1-No
@@ -488,7 +500,7 @@ data.classify <- data.classify %>% mutate_at(c("actions_socialdist_method"), str
 
 data.classify <- data.classify %>% mutate_at(c("actions_socialdist_method"), lengths)
 
-data.classify
+# data.classify
 ```
 
 
@@ -528,8 +540,8 @@ data.classify$actions_livealone <- as.character(data.classify$actions_livealone)
 data.classify$actions_livealone[data.classify$actions_livealone=="2"] <- "0"
 data.classify$actions_livealone[data.classify$actions_livealone=="3"] <- "0"
 
-data.classify$actions_livealone
-data.classify$actions_household
+# data.classify$actions_livealone
+# data.classify$actions_household
 ```
 
 
@@ -617,12 +629,25 @@ Ethnicity
 8-Prefer not to answer
 
 Marital
-1-Recode Values  Variable Naming
-2-Single
-3-Married
-4-Unmarried partners
-5-Widowed
-6-Divorced
+1-Single
+2-Married
+3-Unmarried partners
+4-Widowed
+5-Divorced
+```{r}
+# refactor, with or without partner
+data.classify$marital_status <- as.character(data.classify$marital_status)
+# data.classify$marital_status <- as.integer(data.classify$marital_status)
+
+data.classify$marital_status[data.classify$marital_status=="1"] = "0"
+data.classify$marital_status[data.classify$marital_status=="4"] = "0"
+data.classify$marital_status[data.classify$marital_status=="5"] = "0"
+
+data.classify$marital_status[data.classify$marital_status=="2"] = "1"
+data.classify$marital_status[data.classify$marital_status=="3"] = "1"
+
+data.classify$marital_status <- as.factor(as.character(data.classify$marital_status))
+```
 
 Education
 1-Less than high school graduate
@@ -642,6 +667,33 @@ Field of education
 8-Medicine and healthcare
 9-Services
 10-Other, please specify
+
+```{r}
+# refactor education in healthcare or not
+data.classify$field_of_education <- as.character(data.classify$field_of_education)
+data.classify$field_of_education <- strsplit(data.classify$field_of_education, ",")
+
+for (i in 1:nrow(data.classify)) {
+  
+  items <- unlist(data.classify$field_of_education[i])
+  
+    
+  # reduce factor, 1-healtare or medicine, 0-other
+  data.classify$field_of_education[i] <- case_when(
+    any(is.element(c("8"), items)) ~ "1",
+    any(is.element(c("1", "2", "3", "4", "5", "6", "7", "9", "10"), items)) ~ "0"    
+  )  
+}
+
+
+data.classify <- data.classify %>% mutate_at(c("field_of_education"), as.integer)
+
+data.classify <- data.classify %>% mutate_at(c("field_of_education"), as.factor)
+
+sum(data.classify$field_of_education==1, na.rm=TRUE) # number of people in healtchcare education
+
+
+```
 
 Feeling right now
 1-6: good-bad
@@ -720,7 +772,7 @@ data.classify <- mutate_at(data.classify,
                              "actions_washinghands", "actions_checkbodtemp", "actions_diningout", "actions_goingtowork", "actions_goingschoo", "actions_religiousser", "actions_fam_inperson", "actions_fam_virtual", "actions_consumenews", "actions_usepubtrans", "actions_stocsupplies", "actions_stocmed", "actions_gethaircut", "actions_physicalser", "actions_gro_toiletpp", "actions_gro_pptowels", "actions_gro_fresfood", "actions_gro_npfood", "actions_gro_water", "actions_gro_hygiene", "actions_household", 
                              "actions_gather2to9", "actions_gather10to49", "actions_gather50to99", "actions_gather100", 
                              "anx_feelingnow", "anx_TVnewspaper", "anx_socialmedia", "anx_familyreaction", "anx_friendreaction", "anx_colleaguereact", "anx_companypolicy", "anx_citystatepolicy", "anx_nationalpolicy", 
-                             "highest_education", "feeling_right_now", 
+                             "feeling_right_now", 
                              "interest_in_politics", "political_typology", 
                              "belief_in_God", "religiosity_rating", 
                              "OUS1", "OUS2", "OUS3", "OUS4", "OUS5", "OUS6", "OUS7", "OUS8", "OUS9", "OUS10"),
@@ -743,14 +795,15 @@ data.classify <- mutate_at(data.classify,
                              "actions_washinghands", "actions_checkbodtemp", "actions_diningout", "actions_goingtowork", "actions_goingschoo", "actions_religiousser", "actions_fam_inperson", "actions_fam_virtual", "actions_consumenews", "actions_usepubtrans", "actions_stocsupplies", "actions_stocmed", "actions_gethaircut", "actions_physicalser", "actions_gro_toiletpp", "actions_gro_pptowels", "actions_gro_fresfood", "actions_gro_npfood", "actions_gro_water", "actions_gro_hygiene", "actions_household", 
                              "actions_gather2to9", "actions_gather10to49", "actions_gather50to99", "actions_gather100", 
                              "anx_feelingnow", "anx_TVnewspaper", "anx_socialmedia", "anx_familyreaction", "anx_friendreaction", "anx_colleaguereact", "anx_companypolicy", "anx_citystatepolicy", "anx_nationalpolicy", 
-                             "highest_education", "feeling_right_now", 
+                             "feeling_right_now", 
                              "interest_in_politics", "political_typology", 
                              "belief_in_God", "religiosity_rating", 
                              "OUS1", "OUS2", "OUS3", "OUS4", "OUS5", "OUS6", "OUS7", "OUS8", "OUS9", "OUS10"),
                            as.integer)
 
-data.classify
+# data.classify
 ```
+
 
 
 ## zipcode
@@ -763,15 +816,105 @@ data.classify <- merge(data.classify, zipcode, by='zip')
 data.classify$state <- as.factor(data.classify$state)
 ```
 
+## select items to classify
+
+### missing data
+actions_checkbodtemp, actions_diningout, 
+     actions_goingtowork, actions_goingschoo, actions_religiousser, actions_usepubtrans,
+```{r}
+# remove NaN rows
+nrow(data.classify)
+
+temp <- data.classify[complete.cases(data.classify), ]
+nrow(temp)
+
+nrow(data.classify)
+
+# check columns with too many missing rows
+
+missing_col <- sapply(data.classify, function(x) sum(is.na(x)))
+missing_row <- rowSums(is.na(data.classify))
+missing_row
+View(missing_col)
+```
+
+
+```{r}
+
+data.classify <- dplyr :: select(
+  data.classify, 
+  
+  -c(zip,
+     ambig1_gov_local,
+     ambig1_b4restrict, ambig1_b4_rs_state1,
+     ambig1_ip_national, ambig1_ip_yes,
+     ambig1_react_state,
+     ambig3_current_covi2,
+     ambig3_family_infect,
+     is.young, city, latitude, longitude,
+     # below items do not have too much variability
+     pastmed_you_ill, pastmed_family_ill, pastmed_pastpandemic, actions_gather50to99, actions_gather10to49, actions_socialdist, RE_know_postest, 
+     # below items have too many levels. CONSIDER REFACTOR
+     ethnicity, state,
+     # below items have too many non response
+     ambig3_you_infect,actions_checkbodtemp,actions_diningout,actions_goingtowork,actions_goingschoo,actions_religiousser,actions_fam_inperson,actions_usepubtrans,actions_stocmed,actions_gethaircut,actions_physicalser,actions_household,anx_TVnewspaper,anx_socialmedia,anx_familyreaction,anx_friendreaction,anx_colleaguereact,anx_companypolicy,field_of_education,feeling_right_now, marital_status, highest_education,
+     interest_in_politics, political_typology, belief_in_God, religiosity_rating, 
+     OUS1, OUS2, OUS3, OUS4, OUS5, OUS6, OUS7, OUS8, OUS9, OUS10
+     )
+  
+  )
+
+data.classify <- data.classify[complete.cases(data.classify), ]
+nrow(data.classify) # 416 remaining
+```
+
+behavior exclusion
+```{r}
+data.classify$isExcluded_mon[data.classify$error.mon<0.5] <- 0
+data.classify$isExcluded_mon[data.classify$error.mon>=0.5] <- 1
+
+data.classify$isExcluded_med[data.classify$error.med<0.5] <- 0
+data.classify$isExcluded_med[data.classify$error.med>=0.5] <- 1
+
+# View(data.classify)
+```
+
+## save into datasheet
+```{r}
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/mdm_covid19_data")
+save(data.classify, file="data_for_classification.Rda")
+write.csv(data.classify, file="data_for_classification.csv")
+```
+
+# classification
+
+## load processed data for classification
+```{r}
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/mdm_covid19_data")
+load("data_for_classification.Rda")
+```
+
 ## select high-low uncertainty attitude
 
 exclude subject
 ```{r}
-data.classify.mon <- filter(data.classify, error.mon<0.5)
-# data.classify.med <- filter(data.classify, error.med<0.5)
+data.classify.mon <- filter(data.classify, isExcluded_mon == 0)
+data.classify.med <- filter(data.classify, isExcluded_med == 0)
+nrow(data.classify.mon)
+nrow(data.classify.med)
 ```
 
-monetary risk attitude
+## select what to classify
+```{r}
+# att_name = "risk.mon"
+# label_name = paste(att_name, ".label", sep = "")
+# 
+# att_name
+# label_name
+```
+
+
+## monetary risk attitude
 ```{r}
 # sort assending
 # actually not necessary
@@ -782,8 +925,8 @@ critical_val <- quantile(data.classify.mon$risk.mon, probs=seq(0,1,0.33))
 
 # label
 data.classify.mon$risk.mon.label <- case_when(
-  data.classify.mon$risk.mon < critical_val[2] ~ 1,
-  data.classify.mon$risk.mon < critical_val[3] ~ 2,
+  data.classify.mon$risk.mon <= critical_val[2] ~ 1,
+  data.classify.mon$risk.mon <= critical_val[3] ~ 2,
   TRUE ~ 3
 )
 
@@ -798,14 +941,11 @@ ggplot(data.classify.mon, aes(x=risk.mon, fill=risk.mon.label)) +
   geom_histogram()
 ```
 
-## remove excessive columns before classification
-```{r}
-df2classify <- data.classify.mon
-```
+
 
 classify 1/3 high risk averse, and 1/3 low risk averse
 ```{r}
-df2classify <- filter(df2classify, risk.mon.label != 2)
+df2classify <- filter(data.classify.mon, risk.mon.label != 2)
 df2classify$risk.mon.label <- case_when(
                                         df2classify$risk.mon.label==1 ~ 0,
                                         df2classify$risk.mon.label==3 ~ 1)
@@ -820,102 +960,209 @@ ggplot(df2classify, aes(x=risk.mon, fill=risk.mon.label)) +
   geom_histogram()
 ```
 
-## select items to classify
-
-### missing data
-actions_checkbodtemp, actions_diningout, 
-     actions_goingtowork, actions_goingschoo, actions_religiousser, actions_usepubtrans,
+## monetary ambiguity attitude
 ```{r}
-# remove NaN rows
-nrow(df2classify)
+# sort assending
+# actually not necessary
+# data.classify.mon <- arrange(data.classify.mon, risk.mon)
 
-df2classify <- df2classify[complete.cases(df2classify), ]
+# get risk attitude quantile
+critical_val <- quantile(data.classify.mon$ambig_corr.mon, probs=seq(0,1,0.33))
 
-temp <- df2classify[complete.cases(df2classify), ]
-nrow(temp)
+# label
+data.classify.mon$ambig_corr.mon.label <- case_when(
+  data.classify.mon$ambig_corr.mon < critical_val[2] ~ 1,
+  data.classify.mon$ambig_corr.mon < critical_val[3] ~ 2,
+  TRUE ~ 3
+)
 
-nrow(df2classify)
-
-# check columns with too many missing rows
-
-missing_col <- sapply(df2classify, function(x) sum(is.na(x)))
-missing_row <- rowSums(is.na(df2classify))
-missing_row
-View(missing_col)
+data.classify.mon$ambig_corr.mon.label <- as.factor(data.classify.mon$ambig_corr.mon.label)
+# View(data.classify.mon)
 ```
 
 
+check distribution of the uncertainty attitude, labeld by high-low
 ```{r}
+ggplot(data.classify.mon, aes(x=ambig_corr.mon, fill=ambig_corr.mon.label)) +
+  geom_histogram()
+```
+
+
+
+classify 1/3 high risk averse, and 1/3 low risk averse
+```{r}
+df2classify <- filter(data.classify.mon, ambig_corr.mon.label != 2)
+df2classify$ambig_corr.mon.label <- case_when(
+                                        df2classify$ambig_corr.mon.label==1 ~ 0,
+                                        df2classify$ambig_corr.mon.label==3 ~ 1)
+
+df2classify$ambig_corr.mon.label <- as.factor(df2classify$ambig_corr.mon.label)
+typeof(df2classify$ambig_corr.mon.label)
+```
+
+check distribution of the uncertainty attitude, labeld by high-low
+```{r}
+ggplot(df2classify, aes(x=ambig_corr.mon, fill=ambig_corr.mon.label)) +
+  geom_histogram()
+```
+
+
+
+## medical risk attitude
+```{r}
+
+# get risk attitude quantile
+critical_val <- quantile(data.classify.med$risk.med, probs=seq(0,1,0.33))
+
+# label
+data.classify.med$risk.med.label <- case_when(
+  data.classify.med$risk.med <= critical_val[2] ~ 1,
+  data.classify.med$risk.med <= critical_val[3] ~ 2,
+  TRUE ~ 3
+)
+
+data.classify.med$risk.med.label <- as.factor(data.classify.med$risk.med.label)
+# View(data.classify.med)
+```
+
+
+check distribution of the uncertainty attitude, labeld by high-low
+```{r}
+ggplot(data.classify.med, aes(x=risk.med, fill=risk.med.label)) +
+  geom_histogram()
+```
+
+
+
+classify 1/3 high risk averse, and 1/3 low risk averse
+```{r}
+df2classify <- filter(data.classify.med, risk.med.label != 2)
+df2classify$risk.med.label <- case_when(
+                                        df2classify$risk.med.label==1 ~ 0,
+                                        df2classify$risk.med.label==3 ~ 1)
+
+df2classify$risk.med.label <- as.factor(df2classify$risk.med.label)
+typeof(df2classify$risk.med.label)
+```
+
+check distribution of the uncertainty attitude, labeld by high-low
+```{r}
+ggplot(df2classify, aes(x=risk.med, fill=risk.med.label)) +
+  geom_histogram()
+```
+
+## medical medical attitude
+```{r}
+
+# get risk attitude quantile
+critical_val <- quantile(data.classify.med$ambig_corr.med, probs=seq(0,1,0.33))
+
+# label
+data.classify.med$ambig_corr.med.label <- case_when(
+  data.classify.med$ambig_corr.med < critical_val[2] ~ 1,
+  data.classify.med$ambig_corr.med < critical_val[3] ~ 2,
+  TRUE ~ 3
+)
+
+data.classify.med$ambig_corr.med.label <- as.factor(data.classify.med$ambig_corr.med.label)
+# View(data.classify.med)
+```
+
+
+check distribution of the uncertainty attitude, labeld by high-low
+```{r}
+ggplot(data.classify.med, aes(x=ambig_corr.med, fill=ambig_corr.med.label)) +
+  geom_histogram()
+```
+
+
+
+classify 1/3 high risk averse, and 1/3 low risk averse
+```{r}
+df2classify <- filter(data.classify.med, ambig_corr.med.label != 2)
+df2classify$ambig_corr.med.label <- case_when(
+                                        df2classify$ambig_corr.med.label==1 ~ 0,
+                                        df2classify$ambig_corr.med.label==3 ~ 1)
+
+df2classify$ambig_corr.med.label <- as.factor(df2classify$ambig_corr.med.label)
+typeof(df2classify$ambig_corr.med.label)
+```
+
+check distribution of the uncertainty attitude, labeld by high-low
+```{r}
+ggplot(df2classify, aes(x=ambig_corr.med, fill=ambig_corr.med.label)) +
+  geom_histogram()
+```
+
+## select subsets for analysis
+```{r}
+
+# View(df2classify)
+
 id <- df2classify$mTurkCode
 
-df2classify <- dplyr :: select(
-  df2classify, 
-  
-  -c(zip, mTurkCode,
-     ambig1_gov_local,
-     ambig1_b4restrict, ambig1_b4_rs_state1,
-     ambig1_ip_national, ambig1_ip_yes,
-     ambig1_react_state,
-     ambig3_current_covi2,
-     ambig3_family_infect,
-     risk.mon, ambig_corr.mon, risk.med, ambig_corr.med, error.mon, error.med, is.young, city, latitude, longitude,
-     # below items do not have too much variability
-     pastmed_you_ill, pastmed_family_ill, pastmed_pastpandemic, actions_gather50to99, actions_gather10to49, actions_socialdist, RE_know_postest, 
-     # below items have too many levels. CONSIDER REFACTOR
-     ethnicity, marital_status, field_of_education, state
-     )
-  
-  )
+df2classify <- dplyr :: select(df2classify,
+                               -c(mTurkCode, risk.mon, ambig_corr.mon, risk.med, ambig_corr.med, error.mon, error.med, isExcluded_mon, isExcluded_med)
+)
 
-df2classify
-
+# colnames(df2classify)
 ```
 
-# classification
-
-## plot
+## plot to visualize 2-d separated by attitude labels
 
 ```{r}
-ggplot(df2classify, aes(x=age, y=income_last.year,color=risk.mon.label, fill=risk.mon.label)) + 
-  geom_point()
+# ggplot(df2classify, aes(x=age, y=income_last.year,color=eval(parse(text = label_name)), fill=eval(parse(text = label_name)))) + 
+#   geom_point()
+
 ```
 
 
 ## select training and testing data
 ```{r}
 nrow(df2classify)
+df2classify$medical.insurance <- as.factor(as.character(df2classify$medical.insurance))
 
-n_train = 150
-n_test = nrow(df2classify)-n_train
+# exclude gender==3 because of only 5 responses
+sum(df2classify$gender==3)
+
+df2classify_final <- df2classify[df2classify$gender != 3,]
+nrow(df2classify_final)
+
+# split training and testing
+n_train = 180
+n_test = nrow(df2classify_final)-n_train
 
 n_train
 n_test
 
 # randomly select
 set.seed(2020)
-mask_train = sample(seq(1,nrow(df2classify),1), n_train)
-mask_test = setdiff(seq(1,nrow(df2classify),1), mask_train)
+mask_train = sample(seq(1,nrow(df2classify_final),1), n_train)
+mask_test = setdiff(seq(1,nrow(df2classify_final),1), mask_train)
 
-train <- df2classify[mask_train,]
-test <- df2classify[mask_test,]
+
+train <- df2classify_final[mask_train,]
+test <- df2classify_final[mask_test,]
+
+
 ```
 
 ## logistic regression
 ```{r}
-glm.fit=glm(risk.mon.label~., 
+glm.fit=glm(ambig_corr.mon.label~., 
             data=train,
             family=binomial,
             na.action="na.omit")
-# summary(glm.fit)
+summary(glm.fit)
 
-summary(glm.fit)$coef
+# summary(glm.fit)$coef
 
 # train accuracy
 train.predict <- predict(glm.fit, type="response")
 class.train.predict <- case_when(train.predict < 0.5 ~ 0,
                                  train.predict >= 0.5 ~ 1)
 
-mean(class.train.predict == train$risk.mon.label, na.rm=TRUE)
+mean(class.train.predict == train$ambig_corr.mon.label, na.rm=TRUE)
 
 # test accuracy
 test.predict <- predict(glm.fit, test, type="response")
@@ -923,9 +1170,52 @@ test.predict <- predict(glm.fit, test, type="response")
 class.rest.predict <- case_when(test.predict < 0.5 ~ 0,
                                 test.predict >= 0.5 ~ 1)
 
-mean(class.rest.predict == test$risk.mon.label, na.rm=TRUE)
+mean(class.rest.predict == test$ambig_corr.mon.label, na.rm=TRUE)
 
 ```
+
+# look at gender diff specifically, as indicated by the logistic regression results
+## exclude subject
+```{r}
+data.classify.mon <- filter(data.classify, isExcluded_mon == 0)
+data.classify.med <- filter(data.classify, isExcluded_med == 0)
+nrow(data.classify.mon)
+nrow(data.classify.med)
+```
+
+## plot attitudes separating gender
+```{r}
+mask_gender <- data.classify.mon$gender != 3
+ggplot(data.classify.mon[mask_gender,], aes(x=gender, y=risk.mon)) +
+  geom_violin()
+
+ggplot(data.classify.mon[mask_gender,], aes(x=gender, y=ambig_corr.mon)) +
+  geom_violin()
+
+mask_gender <- data.classify.med$gender != 3
+ggplot(data.classify.med[mask_gender,], aes(x=gender, y=risk.med)) +
+  geom_violin()
+
+ggplot(data.classify.med[mask_gender,], aes(x=gender, y=ambig_corr.med)) +
+  geom_violin()
+
+
+
+# t-test, monetary risk
+t.test(data.classify.mon[data.classify.mon$gender==1,]$risk.mon,
+       data.classify.mon[data.classify.mon$gender==2,]$risk.mon)
+
+t.test(data.classify.mon[data.classify.mon$gender==1,]$ambig_corr.mon,
+       data.classify.mon[data.classify.mon$gender==2,]$ambig_corr.mon)
+
+t.test(data.classify.med[data.classify.med$gender==1,]$risk.med,
+       data.classify.med[data.classify.med$gender==2,]$risk.med)
+
+t.test(data.classify.med[data.classify.med$gender==1,]$ambig_corr.med,
+       data.classify.med[data.classify.med$gender==2,]$ambig_corr.med)
+
+```
+
 
 
 ## LDA, train and calculate test accuracy
