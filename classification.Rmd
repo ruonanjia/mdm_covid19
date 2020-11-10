@@ -894,9 +894,7 @@ setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/mdm_covid19_data")
 load("data_for_classification.Rda")
 ```
 
-## select high-low uncertainty attitude
-
-exclude subject
+## exclude subject
 ```{r}
 data.classify.mon <- filter(data.classify, isExcluded_mon == 0)
 data.classify.med <- filter(data.classify, isExcluded_med == 0)
@@ -1051,7 +1049,7 @@ ggplot(df2classify, aes(x=risk.med, fill=risk.med.label)) +
   geom_histogram()
 ```
 
-## medical medical attitude
+## medical ambiguity attitude
 ```{r}
 
 # get risk attitude quantile
@@ -1120,7 +1118,7 @@ df2classify <- dplyr :: select(df2classify,
 ## select training and testing data
 ```{r}
 nrow(df2classify)
-df2classify$medical.insurance <- as.factor(as.character(df2classify$medical.insurance))
+# df2classify$medical.insurance <- as.factor(as.character(df2classify$medical.insurance))
 
 # exclude gender==3 because of only 5 responses
 sum(df2classify$gender==3)
@@ -1129,7 +1127,7 @@ df2classify_final <- df2classify[df2classify$gender != 3,]
 nrow(df2classify_final)
 
 # split training and testing
-n_train = 180
+n_train = floor(nrow(df2classify_final) * 1)
 n_test = nrow(df2classify_final)-n_train
 
 n_train
@@ -1138,18 +1136,19 @@ n_test
 # randomly select
 set.seed(2020)
 mask_train = sample(seq(1,nrow(df2classify_final),1), n_train)
-mask_test = setdiff(seq(1,nrow(df2classify_final),1), mask_train)
+# mask_test = setdiff(seq(1,nrow(df2classify_final),1), mask_train)
 
 
 train <- df2classify_final[mask_train,]
-test <- df2classify_final[mask_test,]
+# test <- df2classify_final[mask_test,]
 
 
 ```
 
 ## logistic regression
+### train and test
 ```{r}
-glm.fit=glm(ambig_corr.mon.label~., 
+glm.fit=glm(ambig_corr.med.label~., 
             data=train,
             family=binomial,
             na.action="na.omit")
@@ -1157,12 +1156,38 @@ summary(glm.fit)
 
 # summary(glm.fit)$coef
 
+
+
+```
+
+### plot regression coeff
+```{r}
+# typeof(glm.fit$coefficients)
+
+coeff2plot <- data.frame(coefficients = glm.fit$coefficients,
+                         item = seq(1,length(glm.fit$coefficients),1))
+
+ggplot(coeff2plot, aes(x = item, y=coefficients)) + 
+  geom_bar(stat = "identity") +
+  scale_x_discrete(limits = rownames(coeff2plot)) + 
+  theme(axis.text.x = element_text(angle = 90, size = 7))
+
+# barplot(height = glm.fit$coefficients, 
+#         width = 2,
+#         horiz = T, las=1, cex.axis=0.1)
+
+
+```
+
+### Train and test accuracy
+```{r}
 # train accuracy
 train.predict <- predict(glm.fit, type="response")
+
 class.train.predict <- case_when(train.predict < 0.5 ~ 0,
                                  train.predict >= 0.5 ~ 1)
 
-mean(class.train.predict == train$ambig_corr.mon.label, na.rm=TRUE)
+mean(class.train.predict == train$risk.mon.label, na.rm=TRUE)
 
 # test accuracy
 test.predict <- predict(glm.fit, test, type="response")
@@ -1170,9 +1195,54 @@ test.predict <- predict(glm.fit, test, type="response")
 class.rest.predict <- case_when(test.predict < 0.5 ~ 0,
                                 test.predict >= 0.5 ~ 1)
 
-mean(class.rest.predict == test$ambig_corr.mon.label, na.rm=TRUE)
+mean(class.rest.predict == test$risk.mon.label, na.rm=TRUE)
+```
+
+
+## many iterations of training and testing
+```{r}
+n_iter = 1000
+train_acc = vector(mode = "double", length = n_iter)
+test_acc = vector(mode = "double", length = n_iter)
+
+
+for (i in 1:n_iter) {
+  mask_train = sample(seq(1,nrow(df2classify_final),1), n_train)
+  mask_test = setdiff(seq(1,nrow(df2classify_final),1), mask_train)
+  
+  train <- df2classify_final[mask_train,]
+  test <- df2classify_final[mask_test,]
+  
+  glm.fit=glm(ambig_corr.med.label~., 
+            data=train,
+            family=binomial,
+            na.action="na.omit")
+  
+  # train accuracy
+  train.predict <- predict(glm.fit, type="response")
+  
+  class.train.predict <- case_when(train.predict < 0.5 ~ 0,
+                                   train.predict >= 0.5 ~ 1)
+  
+  train_acc[i] = mean(class.train.predict == train$ambig_corr.med.label, na.rm=TRUE)
+  
+  # test accuracy
+  test.predict <- predict(glm.fit, test, type="response")
+  
+  class.rest.predict <- case_when(test.predict < 0.5 ~ 0,
+                                  test.predict >= 0.5 ~ 1)
+  
+  test_acc[i] = mean(class.rest.predict == test$ambig_corr.med.label, na.rm=TRUE)  
+}
+
+mean(train_acc)
+mean(test_acc)
 
 ```
+
+
+# Train one attitude and predict the other
+
 
 # look at gender diff specifically, as indicated by the logistic regression results
 ## exclude subject
@@ -1182,6 +1252,8 @@ data.classify.med <- filter(data.classify, isExcluded_med == 0)
 nrow(data.classify.mon)
 nrow(data.classify.med)
 ```
+
+
 
 ## plot attitudes separating gender
 ```{r}
