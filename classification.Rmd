@@ -1243,6 +1243,127 @@ mean(test_acc)
 
 # Train one attitude and predict the other
 
+## train on monetary risk attitude and test on medical risk attitude
+
+prepare data
+```{r}
+data.classify.both <- merge(data.classify.mon, data.classify.med, by = intersect(colnames(data.classify.mon), colnames(data.classify.med)))
+
+df2classify <- filter(data.classify.both, (risk.med.label != 2 & risk.mon.label != 2))
+
+View(data.classify)
+
+df2classify$risk.med.label <- case_when(
+                                        df2classify$risk.med.label==1 ~ 0,
+                                        df2classify$risk.med.label==3 ~ 1)
+
+df2classify$risk.mon.label <- case_when(
+                                        df2classify$risk.mon.label==1 ~ 0,
+                                        df2classify$risk.mon.label==3 ~ 1)
+
+df2classify$risk.med.label <- as.factor(df2classify$risk.med.label)
+df2classify$risk.mon.label <- as.factor(df2classify$risk.mon.label)
+
+typeof(df2classify$risk.med.label)
+```
+
+take out train and tes
+```{r}
+id <- df2classify$mTurkCode
+test.label <- df2classify$risk.med.label
+
+df2classify.final <- dplyr :: select(df2classify,
+                               -c(mTurkCode, risk.mon, ambig_corr.mon, risk.med, ambig_corr.med, error.mon, error.med, isExcluded_mon, isExcluded_med, risk.med.label)
+)
+```
+
+logistic regression
+```{r}
+glm.fit=glm(risk.mon.label~., 
+            data=df2classify.final,
+            family=binomial,
+            na.action="na.omit")
+
+summary(glm.fit)
+
+nrow(df2classify.final)
+```
+
+```{r}
+# train accuracy
+train.predict <- predict(glm.fit, type="response")
+
+train.predict
+
+class.train.predict <- case_when(train.predict < 0.5 ~ 0,
+                                 train.predict >= 0.5 ~ 1)
+
+mean(class.train.predict == df2classify.final$risk.mon.label, na.rm=TRUE)
+
+# test accuracy
+mean(class.train.predict == test.label, na.rm=TRUE)
+```
+
+## train on monetary ambigiuty attitude and test on medical ambiguity attitude
+
+prepare data
+```{r}
+data.classify.both <- merge(data.classify.mon, data.classify.med, by = intersect(colnames(data.classify.mon), colnames(data.classify.med)))
+
+df2classify <- filter(data.classify.both, (ambig_corr.med.label != 2 & ambig_corr.mon.label != 2))
+
+View(data.classify)
+
+df2classify$ambig_corr.med.label <- case_when(
+                                        df2classify$ambig_corr.med.label==1 ~ 0,
+                                        df2classify$ambig_corr.med.label==3 ~ 1)
+
+df2classify$ambig_corr.mon.label <- case_when(
+                                        df2classify$ambig_corr.mon.label==1 ~ 0,
+                                        df2classify$ambig_corr.mon.label==3 ~ 1)
+
+df2classify$ambig_corr.med.label <- as.factor(df2classify$ambig_corr.med.label)
+df2classify$ambig_corr.mon.label <- as.factor(df2classify$ambig_corr.mon.label)
+
+typeof(df2classify$ambig_corr.med.label)
+```
+
+take out train and test
+```{r}
+id <- df2classify$mTurkCode
+test.label <- df2classify$ambig_corr.med.label
+
+df2classify.final <- dplyr :: select(df2classify,
+                               -c(mTurkCode, risk.mon, ambig_corr.mon, risk.med, ambig_corr.med, error.mon, error.med, isExcluded_mon, isExcluded_med, ambig_corr.med.label)
+)
+```
+
+logistic regression
+```{r}
+glm.fit=glm(ambig_corr.mon.label~., 
+            data=df2classify.final,
+            family=binomial,
+            na.action="na.omit")
+
+summary(glm.fit)
+
+nrow(df2classify.final)
+```
+
+```{r}
+# train accuracy
+train.predict <- predict(glm.fit, type="response")
+
+# train.predict
+
+class.train.predict <- case_when(train.predict < 0.5 ~ 0,
+                                 train.predict >= 0.5 ~ 1)
+
+mean(class.train.predict == df2classify.final$ambig_corr.mon.label, na.rm=TRUE)
+
+# test accuracy
+mean(class.train.predict == test.label, na.rm=TRUE)
+```
 
 # look at gender diff specifically, as indicated by the logistic regression results
 ## exclude subject
