@@ -1093,6 +1093,7 @@ ggplot(df2classify, aes(x=ambig_corr.med, fill=ambig_corr.med.label)) +
 ```
 
 ## select subsets for analysis
+
 ```{r}
 
 # View(df2classify)
@@ -1101,6 +1102,20 @@ id <- df2classify$mTurkCode
 
 df2classify <- dplyr :: select(df2classify,
                                -c(mTurkCode, risk.mon, ambig_corr.mon, risk.med, ambig_corr.med, error.mon, error.med, isExcluded_mon, isExcluded_med)
+)
+
+# colnames(df2classify)
+```
+
+take into account the other attitude that is correlated with 
+```{r}
+
+# View(df2classify)
+
+id <- df2classify$mTurkCode
+
+df2classify <- dplyr :: select(df2classify,
+                               -c(mTurkCode, risk.mon, ambig_corr.mon, ambig_corr.med, error.mon, error.med, isExcluded_mon, isExcluded_med)
 )
 
 # colnames(df2classify)
@@ -1127,7 +1142,7 @@ df2classify_final <- df2classify[df2classify$gender != 3,]
 nrow(df2classify_final)
 
 # split training and testing
-n_train = floor(nrow(df2classify_final) * 1)
+n_train = floor(nrow(df2classify_final) * 0.8)
 n_test = nrow(df2classify_final)-n_train
 
 n_train
@@ -1136,11 +1151,11 @@ n_test
 # randomly select
 set.seed(2020)
 mask_train = sample(seq(1,nrow(df2classify_final),1), n_train)
-# mask_test = setdiff(seq(1,nrow(df2classify_final),1), mask_train)
+mask_test = setdiff(seq(1,nrow(df2classify_final),1), mask_train)
 
 
 train <- df2classify_final[mask_train,]
-# test <- df2classify_final[mask_test,]
+test <- df2classify_final[mask_test,]
 
 
 ```
@@ -1187,7 +1202,7 @@ train.predict <- predict(glm.fit, type="response")
 class.train.predict <- case_when(train.predict < 0.5 ~ 0,
                                  train.predict >= 0.5 ~ 1)
 
-mean(class.train.predict == train$risk.mon.label, na.rm=TRUE)
+mean(class.train.predict == train$ambig_corr.med.label, na.rm=TRUE)
 
 # test accuracy
 test.predict <- predict(glm.fit, test, type="response")
@@ -1195,9 +1210,27 @@ test.predict <- predict(glm.fit, test, type="response")
 class.rest.predict <- case_when(test.predict < 0.5 ~ 0,
                                 test.predict >= 0.5 ~ 1)
 
-mean(class.rest.predict == test$risk.mon.label, na.rm=TRUE)
+mean(class.rest.predict == test$ambig_corr.med.label, na.rm=TRUE)
 ```
 
+### look at gender differnece in the testing set
+```{r}
+ggplot(test, aes(x=ambig_corr.med.label, fill=gender,color=gender)) +
+  geom_histogram(stat = "count", position="identity", alpha = 0.5)
+
+library(MASS)       # load the MASS package 
+tbl_train = table(as.factor(as.character(train$gender)),
+            as.factor(as.character(train$ambig_corr.med.label)))
+tbl_train
+chisq.test(tbl_train)
+
+tbl_test = table(as.factor(as.character(test$gender)),
+            as.factor(as.character(test$ambig_corr.med.label)))
+tbl_test
+
+# chi square test
+chisq.test(tbl_test)
+```
 
 ## many iterations of training and testing
 ```{r}
@@ -1267,7 +1300,7 @@ df2classify$risk.mon.label <- as.factor(df2classify$risk.mon.label)
 typeof(df2classify$risk.med.label)
 ```
 
-take out train and tes
+take out train and test
 ```{r}
 id <- df2classify$mTurkCode
 test.label <- df2classify$risk.med.label
