@@ -44,7 +44,7 @@ library(tidyverse)
 # load data
 ```{r}
 # setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
-setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/mdm_covid19_data")
 load("data_all_444sub_rename.Rda")
 load("data_all_444sub_rename_header.Rda")
 load("data_all_444sub_attitude.Rda")
@@ -57,9 +57,9 @@ rm(data.attitude)
 
 save into spread sheet
 ```{r}
-# setwd("/Users/jiaruonan/Desktop/mdm_covid19/mdm_covid19_data")
-# write.csv(header,"data_header.csv", row.names = FALSE)
-# write.csv(data.all,"data_all_444sub.csv", row.names = FALSE)
+# setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/mdm_covid19_data")
+# write.csv(header,"data_header_new.csv", row.names = FALSE)
+# write.csv(data.all,"data_all_444sub_new.csv", row.names = FALSE)
 ```
 
 # Preprocess some data columns, run the following chunks before further analysis:
@@ -1697,9 +1697,118 @@ data.all$mTurkCode[data.all$Q1027 == 1]
 # 2-immediate family, 3 - extended family, 9 - no
 ```
 
-action block
+# non-essention block
+"interest_in_politics"         "political_typology"          
+[341] "belief_in_God"                "religiosity_rating"          
+[343] "OUS1"                         "OUS2"                        
+[345] "OUS3"                         "OUS4"                        
+[347] "OUS5"                         "OUS6"                        
+[349] "OUS7"                         "OUS8"                        
+[351] "OUS9"                         "OUS10"
+
+## interest in politics
 ```{r}
+# names(data.all)
+data.all$interest_in_politics <- as.integer(as.character(data.all$interest_in_politics))
+
+# some NA values
+# data.all$interest_in_politics[435]
+
+labels <- c("Very uninterested", "Somewhat uninteresed", "Slightly uninterested", "Not sure", "Slightly interested", "Somewhat interested", "Very interested")
+
+ggplot(data.all, aes(x=interest_in_politics, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_continuous(breaks = seq(1,7,1), labels=labels) +
+  rotate_x_text(30) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  xlab("Interest in politics") +
+  ggtitle("Interest in politics")
+
+
+```
+
+map
+```{r}
+data.all$interest_in_politics <- as.numeric(as.character(data.all$interest_in_politics))
+
+# location of county by zipcode
+data.zipcode<-aggregate(
+  data.frame(anx=data.all$interest_in_politics)-4,list(zip=data.all$zipcode),
+  mean,
+  na.action=na.omit)
+
+geo<- merge(data.zipcode, zipcode, by='zip')
+
+# location of state by zipcodes
+state_all <- unique(geo$state)
+geo_state <- data.frame(state = state_all)
+
+state_match <- match(geo$state, state_all)
+for (idx in 1:length(state_all)) {
+  geo_state$interest_in_politics[idx] <- mean(geo$interest_in_politics[geo$state==state_all[idx]],na.rm=TRUE)
+}
+
+# plot
+plot_usmap(data=geo_state, regions="states",values="interest_in_politics") +
+  scale_fill_gradient2(midpoint=0,low=muted("blue"),high=muted("red")) +
+  ggtitle("How intereste are you in politics") +
+  labs(fill = "Extremely (Red)\n~\nA fair amount (White) \n~\nNot at all (Blue)\n") +
+  theme(legend.position = "right")
+```
+
+
+## political typology
+```{r}
+data.all$political_typology <- as.integer(as.character(data.all$political_typology))
+
+unique(data.all$political_typology)
+
+labels <- c("Very liberal", "Liberal", "Slightly liberal", "Moderate/middle-of-the-road", "Slightly conservative", "Conservative", "Very conservative", "Don't know/not political", "Libertarian")
+
+ggplot(data.all, aes(x=political_typology, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_continuous(breaks = seq(1,9,1), labels=labels) +
+  rotate_x_text(30) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  xlab("Political typology") +
+  ggtitle("Political typology")
+
+```
+
+## believe in god
+```{r}
+data.all$belief_in_God <- as.integer(as.character(data.all$belief_in_God))
+
+unique(data.all$belief_in_God)
+
+labels <- c("Very much", "Moderately", "Slightly", "Not sure", "Slightly do not", "Moderately do not", "Do not at all", "Agnostic")
+
+ggplot(data.all, aes(x=belief_in_God, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_continuous(breaks = seq(1,8,1), labels=labels) +
+  rotate_x_text(30) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  xlab("Believe in God") +
+  ggtitle("Believe in God")
 
 ```
 
 
+## religiosity
+
+```{r}
+data.all$religiosity_rating <- as.integer(as.character(data.all$religiosity_rating))
+
+unique(data.all$religiosity_rating)
+
+labels <- c("Very", "Moderately", "Slightly", "Not sure", "Slightly not", "Moderately not", "Not at all")
+
+ggplot(data.all, aes(x=religiosity_rating, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_continuous(breaks = seq(1,7,1), labels=labels) +
+  rotate_x_text(30) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  xlab("Religiosity") +
+  ggtitle("Religiosity")
+
+```
