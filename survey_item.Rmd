@@ -1707,6 +1707,7 @@ data.all$mTurkCode[data.all$Q1027 == 1]
 [351] "OUS9"                         "OUS10"
 
 ## interest in politics
+### distribution
 ```{r}
 # names(data.all)
 data.all$interest_in_politics <- as.integer(as.character(data.all$interest_in_politics))
@@ -1727,7 +1728,7 @@ ggplot(data.all, aes(x=interest_in_politics, fill = is.young)) +
 
 ```
 
-map
+### map
 ```{r}
 data.all$interest_in_politics <- as.numeric(as.character(data.all$interest_in_politics))
 
@@ -1757,6 +1758,66 @@ plot_usmap(data=geo_state, regions="states",values="pol_interest") +
   theme(legend.position = "right")
 ```
 
+### uncertainty attitude
+```{r}
+data.all$interest_in_politics <- as.factor(as.character(data.all$interest_in_politics))
+
+labels <- c("Very uninterested", "Somewhat uninteresed", "Slightly uninterested", "Not sure", "Slightly interested", "Somewhat interested", "Very interested")
+
+# scatter plot
+ggplot(data.all[data.all$error.med<0.5 & !is.na(data.all$interest_in_politics),], aes(x=interest_in_politics , y=ambig_corr.med)) + 
+  geom_point() +
+  ylab("model-free ambig Medical")
+
+# medical ambiguity, 7 factor
+ggplot(data.all[data.all$error.med<0.5 & !is.na(data.all$interest_in_politics),], aes(x=interest_in_politics , y=ambig_corr.med)) + 
+  geom_violin() +
+  # geom_dotplot(binaxis='y', stackdir='center', dotsize=0.3) +
+  xlab("Interest in politics") +
+  rotate_x_text(30) +
+  scale_x_discrete(labels=labels) +
+  geom_jitter(shape=16, position=position_jitter(0.2),size=1,alpha=0.3,color="red") +
+  geom_boxplot(width=0.1) +
+  ylab("model-free ambig Medical")
+
+# medical ambiguity, collapse into groups
+data2plot <- data.all %>% dplyr :: select(
+  error.med, error.mon, risk.med, risk.mon, ambig_corr.med, ambig_corr.mon, interest_in_politics
+  )
+data2plot$interest_in_politics <- as.numeric(as.character(data2plot$interest_in_politics))
+
+data2plot$interest_in_politics_group[data2plot$interest_in_politics < 4] <- -1
+data2plot$interest_in_politics_group[data2plot$interest_in_politics > 4] <- 1
+data2plot$interest_in_politics_group[data2plot$interest_in_politics == 4] <- 0
+data2plot$interest_in_politics_group[is.na(data2plot$interest_in_politics)] <- NA
+
+# data2plot$interest_in_politics_group_t <- dplyr :: case_when(
+#   (data2plot$interest_in_politics < 4) ~ -1,
+#   (data2plot$interest_in_politics > 4) ~ 1,
+#   (data2plot$interest_in_politics == 4) ~ 0,
+#   (is.na(data2plot$interest_in_politics)) ~ NA
+# )
+
+data2plot$interest_in_politics_group <- as.factor(as.character(data2plot$interest_in_politics_group))
+
+labels <- c("Uninterested", "Not sure", "Interested")
+
+ggplot(data2plot[data2plot$error.mon<0.5 & !is.na(data2plot$interest_in_politics),], aes(x=interest_in_politics_group , y=ambig_corr.mon)) + 
+  geom_violin() +
+  # geom_dotplot(binaxis='y', stackdir='center', dotsize=0.3) +
+  xlab("Interest in politics") +
+  rotate_x_text(30) +
+  scale_x_discrete(labels=labels) +
+  geom_jitter(shape=16, position=position_jitter(0.2),size=1,alpha=0.3,color="red") +
+  geom_boxplot(width=0.1) +
+  ylab("model-free ambiguity Monetary")
+
+# t test
+t.test(data2plot[data2plot$error.mon<0.5 & !is.na(data2plot$interest_in_politics) & data2plot$interest_in_politics_group == -1,]$ambig_corr.mon,
+       data2plot[data2plot$error.mon<0.5 & !is.na(data2plot$interest_in_politics) & data2plot$interest_in_politics_group == 1,]$ambig_corr.mon
+)
+
+```
 
 ## political typology
 ```{r}
@@ -1879,7 +1940,6 @@ map
 data.all$religiosity_rating <- as.numeric(as.character(data.all$religiosity_rating))
 
 # location of county by zipcode
-# need to exclude ansowers of 8 (Agnostic)
 data.zipcode<-aggregate(
   data.frame(relig=data.all$religiosity_rating)-4,list(zip=data.all$zipcode),
   mean,
@@ -1894,14 +1954,14 @@ geo_state <- data.frame(state = state_all)
 state_match <- match(geo$state, state_all)
 
 for (idx in 1:length(state_all)) {
-  geo_state$belief_god[idx] <- mean(geo$belief_god[geo$state==state_all[idx]],na.rm=TRUE)
+  geo_state$relig[idx] <- mean(geo$relig[geo$state==state_all[idx]],na.rm=TRUE)
 }
 
 # plot
-plot_usmap(data=geo_state, regions="states",values="belief_god") +
+plot_usmap(data=geo_state, regions="states",values="relig") +
   scale_fill_gradient2(midpoint=0,low=muted("blue"),high=muted("red")) +
-  ggtitle("How much do you believe in God") +
-  labs(fill = "Do not at all (Red)\n~\nNot sure (White) \n~\nVery Much (Blue)\n") +
+  ggtitle("How religious are you") +
+  labs(fill = "Not at all (Red)\n~\nNot sure (White) \n~\nVery (Blue)\n") +
   theme(legend.position = "right")
 ```
 
