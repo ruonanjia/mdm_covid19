@@ -1733,7 +1733,7 @@ data.all$interest_in_politics <- as.numeric(as.character(data.all$interest_in_po
 
 # location of county by zipcode
 data.zipcode<-aggregate(
-  data.frame(anx=data.all$interest_in_politics)-4,list(zip=data.all$zipcode),
+  data.frame(pol_interest=data.all$interest_in_politics)-4,list(zip=data.all$zipcode),
   mean,
   na.action=na.omit)
 
@@ -1744,15 +1744,16 @@ state_all <- unique(geo$state)
 geo_state <- data.frame(state = state_all)
 
 state_match <- match(geo$state, state_all)
+
 for (idx in 1:length(state_all)) {
-  geo_state$interest_in_politics[idx] <- mean(geo$interest_in_politics[geo$state==state_all[idx]],na.rm=TRUE)
+  geo_state$pol_interest[idx] <- mean(geo$pol_interest[geo$state==state_all[idx]],na.rm=TRUE)
 }
 
 # plot
-plot_usmap(data=geo_state, regions="states",values="interest_in_politics") +
+plot_usmap(data=geo_state, regions="states",values="pol_interest") +
   scale_fill_gradient2(midpoint=0,low=muted("blue"),high=muted("red")) +
-  ggtitle("How intereste are you in politics") +
-  labs(fill = "Extremely (Red)\n~\nA fair amount (White) \n~\nNot at all (Blue)\n") +
+  ggtitle("How interested are you in politics") +
+  labs(fill = "Very interested (Red)\n~\nNot sure (White) \n~\nVery uninterested (Blue)\n") +
   theme(legend.position = "right")
 ```
 
@@ -1775,6 +1776,37 @@ ggplot(data.all, aes(x=political_typology, fill = is.young)) +
 
 ```
 
+map
+```{r}
+data.all$political_typology <- as.numeric(as.character(data.all$political_typology))
+
+# location of county by zipcode
+# need to exclude ansowers of 8 ("Don't know/not political) and 9 (Libertarian)
+data.zipcode<-aggregate(
+  data.frame(pol_type=data.all$political_typology[data.all$political_typology != 8 & data.all$political_typology != 9])-4,list(zip=data.all$zipcode[data.all$political_typology != 8 & data.all$political_typology != 9]),
+  mean,
+  na.action=na.omit)
+
+geo<- merge(data.zipcode, zipcode, by='zip')
+
+# location of state by zipcodes
+state_all <- unique(geo$state)
+geo_state <- data.frame(state = state_all)
+
+state_match <- match(geo$state, state_all)
+
+for (idx in 1:length(state_all)) {
+  geo_state$pol_type[idx] <- mean(geo$pol_type[geo$state==state_all[idx]],na.rm=TRUE)
+}
+
+# plot
+plot_usmap(data=geo_state, regions="states",values="pol_type") +
+  scale_fill_gradient2(midpoint=0,low=muted("blue"),high=muted("red")) +
+  ggtitle("Political typology") +
+  labs(fill = "Very conservative (Red)\n~\nMiddle-of-the-road (White) \n~\nVery Liberal (Blue)\n") +
+  theme(legend.position = "right")
+```
+
 ## believe in god
 ```{r}
 data.all$belief_in_God <- as.integer(as.character(data.all$belief_in_God))
@@ -1793,9 +1825,38 @@ ggplot(data.all, aes(x=belief_in_God, fill = is.young)) +
 
 ```
 
+map
+```{r}
+data.all$belief_in_God <- as.numeric(as.character(data.all$belief_in_God))
+
+# location of county by zipcode
+# need to exclude ansowers of 8 (Agnostic)
+data.zipcode<-aggregate(
+  data.frame(belief_god=data.all$belief_in_God[data.all$belief_in_God != 8])-4,list(zip=data.all$zipcode[data.all$belief_in_God != 8]),
+  mean,
+  na.action=na.omit)
+
+geo<- merge(data.zipcode, zipcode, by='zip')
+
+# location of state by zipcodes
+state_all <- unique(geo$state)
+geo_state <- data.frame(state = state_all)
+
+state_match <- match(geo$state, state_all)
+
+for (idx in 1:length(state_all)) {
+  geo_state$belief_god[idx] <- mean(geo$belief_god[geo$state==state_all[idx]],na.rm=TRUE)
+}
+
+# plot
+plot_usmap(data=geo_state, regions="states",values="belief_god") +
+  scale_fill_gradient2(midpoint=0,low=muted("blue"),high=muted("red")) +
+  ggtitle("How much do you believe in God") +
+  labs(fill = "Do not at all (Red)\n~\nNot sure (White) \n~\nVery Much (Blue)\n") +
+  theme(legend.position = "right")
+```
 
 ## religiosity
-
 ```{r}
 data.all$religiosity_rating <- as.integer(as.character(data.all$religiosity_rating))
 
@@ -1812,3 +1873,37 @@ ggplot(data.all, aes(x=religiosity_rating, fill = is.young)) +
   ggtitle("Religiosity")
 
 ```
+
+map
+```{r}
+data.all$religiosity_rating <- as.numeric(as.character(data.all$religiosity_rating))
+
+# location of county by zipcode
+# need to exclude ansowers of 8 (Agnostic)
+data.zipcode<-aggregate(
+  data.frame(relig=data.all$religiosity_rating)-4,list(zip=data.all$zipcode),
+  mean,
+  na.action=na.omit)
+
+geo<- merge(data.zipcode, zipcode, by='zip')
+
+# location of state by zipcodes
+state_all <- unique(geo$state)
+geo_state <- data.frame(state = state_all)
+
+state_match <- match(geo$state, state_all)
+
+for (idx in 1:length(state_all)) {
+  geo_state$belief_god[idx] <- mean(geo$belief_god[geo$state==state_all[idx]],na.rm=TRUE)
+}
+
+# plot
+plot_usmap(data=geo_state, regions="states",values="belief_god") +
+  scale_fill_gradient2(midpoint=0,low=muted("blue"),high=muted("red")) +
+  ggtitle("How much do you believe in God") +
+  labs(fill = "Do not at all (Red)\n~\nNot sure (White) \n~\nVery Much (Blue)\n") +
+  theme(legend.position = "right")
+```
+
+
+
