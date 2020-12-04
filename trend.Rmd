@@ -1,0 +1,155 @@
+---
+title: "R Notebook"
+author: ruonanjia
+---
+
+
+```{r}
+rm(list = ls())
+```
+
+load library
+```{r}
+library(ggplot2)
+library(zipcode) # install only available through archive
+library(maps)
+library(ggpubr)
+library("PerformanceAnalytics") # for chart correlation
+library(usmap) # for plotting data us maps
+library(scales) # for muted() function
+library(tidyverse)
+# library(memisc)
+```
+
+# load data
+```{r}
+# setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/mdm_covid19_data")
+load("data_all_444sub_rename.Rda")
+load("data_all_444sub_rename_header.Rda")
+load("data_all_444sub_attitude.Rda")
+tracker <- read.csv("testing_by_state.csv", header = TRUE)
+
+# combine data
+data.all <- merge(data.all, data.attitude, by = "mTurkCode")
+data.all$age <- as.numeric(as.character(data.all$age)) + 17 # correct coding
+rm(data.attitude)
+```
+
+# Preprocess some data columns, run the following chunks before further analysis:
+
+Separate young and old, compare with 60 yr
+```{r}
+data.all$is.young <- 1
+data.all$is.young[data.all$age >= 60] = 0 
+data.all$is.young <- as.factor(data.all$is.young)
+```
+
+Clean zipcode
+```{r}
+# clean zipcode
+data.all$zip_postal_code <- as.numeric(as.character(data.all$zip_postal_code))
+data(zipcode)
+data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
+```
+
+State based on zip
+```{r}
+colnames(zipcode)[1] = "zipcode"
+data.all <- merge(data.all, zipcode, by="zipcode")
+```
+
+
+```{r}
+tracker$state <- as.character(tracker$state)
+tracker$week <- as.integer(as.character(tracker$week))
+tracker$testing <- as.numeric(tracker$testing)
+
+# no data for AL
+typeof(tracker$testing)
+```
+
+save into spread sheet
+```{r}
+# setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/mdm_covid19_data")
+# write.csv(header,"data_header_new.csv", row.names = FALSE)
+# write.csv(data.all,"data_all_444sub_new.csv", row.names = FALSE)
+```
+End of preprocessing
+
+
+
+# plot trend of testing
+```{r}
+large_states <- c("FL", "CA", "NY", "OH", "TX")
+
+ggplot(tracker[is.element(tracker$state, large_states),], aes(x = week, y = testing, color = state)) +
+  geom_point() +
+  scale_x_continuous(breaks=seq(1,6,1)) +
+  ggtitle("Number of Testing (3/29 ~ 5/9/2020)")
+```
+
+# combine data with case tracker, matching time
+```{r}
+data.all$testing <- NA
+data.all$week <- NA
+
+# if within the week
+for (i in 1:nrow(data.all)) {
+  if (data.all$state[i] != "AL") {
+    data.all$testing[i] <-
+      tracker$testing[as.Date(data.all$StartDate[i])>=as.Date(tracker$date) &
+                        as.Date(data.all$StartDate[i])<as.Date(tracker$date)+7 &
+                        as.character(data.all$state[i]) == tracker$state]
+    
+    data.all$week[i] <-
+      tracker$week[as.Date(data.all$StartDate[i])>=as.Date(tracker$date) &
+                        as.Date(data.all$StartDate[i])<as.Date(tracker$date)+7 &
+                        as.character(data.all$state[i]) == tracker$state]
+  }
+}
+
+```
+
+```{r}
+data.all$ambig1_react_state <- as.integer(as.character(data.all$ambig1_react_state))
+
+data.all$ambig1_gov_local <- as.integer(as.character(data.all$ambig1_gov_local))
+```
+
+#
+```{r}
+ggplot(data.all[is.element(data.all$state, large_states),], aes(x=testing, y=ambig1_react_state)) +
+  geom_point()
+
+cor.test(~ testing + ambig1_react_state,
+         data.all[is.element(data.all$state, large_states),]
+         )
+```
+
+# linear regression
+# https://www.statmethods.net/stats/regression.html
+
+```{r}
+data.all$week <- ordered(data.all$week, levels = 1:6)
+data.all$state <- as.factor(data.all$state)
+
+fit <- lm(ambig1_react_state ~ state + testing + week, 
+          data.all[is.element(data.all$state, large_states),])
+
+fit <- lm(ambig1_gov_local ~ state + testing + week, 
+          data.all[is.element(data.all$state, large_states),])
+
+summary(fit)
+
+anova(fit)
+
+data.all$ambig1_
+```
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
