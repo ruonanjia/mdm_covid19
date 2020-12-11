@@ -15,6 +15,9 @@ from sklearn.metrics import roc_curve, auc
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 
+# for finding the most common elements
+from collections import Counter
+from itertools import chain
 
 import matplotlib.pyplot as plt
 from IPython import get_ipython
@@ -101,6 +104,18 @@ clf_cv.scores_[1].mean()
 clf_cv.scores_[1].shape
 clf_cv.scores_[1]
 
+# coefficients
+clf_cv.coef_.shape
+clf_cv.coef_
+
+# sort and find 10 bset predictors
+coef_sorted = np.sort(clf_cv.coef_)
+coef_idx = np.argsort(clf_cv.coef_)
+print(coef_sorted)
+print(coef_idx)
+
+# what are the 10 best predictors
+X.columns[coef_idx[0,0:9]]
 
 # clf_cv.score(x, y)
 
@@ -113,10 +128,22 @@ X = data_classify.iloc[:,1:69]
 n_iter = 50
 
 score_cv = []
+best10_coef = []
+best10_name = []
 
 for i in range(n_iter):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.2)
-    score_test = LogisticRegression(random_state=0,max_iter=1000).fit(X_train, y_train).score(X_test, y_test)
+    clf = LogisticRegression(max_iter=1000).fit(X_train, y_train)
+
+    # sort and find 10 bset predictors
+    coef_sorted = np.sort(clf.coef_)
+    coef_idx = np.argsort(clf.coef_)
+
+    ## what are the 10 best predictors
+    best10_name.append(list(X_train.columns[coef_idx[0,0:9]]))
+    best10_coef.append(list(coef_sorted[0,coef_idx[0,0:9]]))
+    
+    score_test = clf.score(X_test, y_test)
     print(score_test)
     score_cv.append(score_test)
     # y_pred = LogisticRegression(random_state=0,max_iter=1000).fit(X_train, y_train).predict(X_test)
@@ -124,6 +151,21 @@ for i in range(n_iter):
 
 print('Average')
 print(np.mean(score_cv))
+
+#%% best predictors
+# find the overlapping of best predictors across iterations
+# .intersection, and .union work for set but not for list
+# best10_name[0].intersection(best10_name[1], best10_name[2], best10_name[3],
+#                             best10_name[4], best10_name[5], best10_name[6])
+
+# best10_name[0].union(best10_name[9])
+
+# find the predictors that appear over 70% of the best 10
+
+counter_obj = Counter(chain.from_iterable(best10_name))
+print(counter_obj.most_common())
+print('Appear over: %s times' %(0.7*n_iter))
+
 #%% ROC
 # https://scikit-learn.org/stable/auto_examples/model_selection/plot_roc.html
 
@@ -172,9 +214,9 @@ plt.legend(loc="lower right")
 plt.show()
 
 #%% ROC many iterations
-data_classify = data[(data['error.med'] < 0.5) & (data['risk.med.label'].notnull())]
+data_classify = data[(data['error.med'] < 0.5) & (data['ambig_corr.med.label'].notnull())]
 
-y = data_classify['risk.med.label']
+y = data_classify['ambig_corr.med.label']
 X = data_classify.iloc[:,1:69]
 
 n_iter =50
@@ -229,6 +271,5 @@ print(classification_report(y_test, y_pred, target_names=['class0', 'class1']))
 y_pred = LogisticRegressionCV(random_state=0,max_iter=1000).fit(X, y).predict(X)
 print(classification_report(y, y_pred, target_names=['class0', 'class1']))
 
-#%% 10 best predictors in every iteration
-
+#%% 
 
