@@ -29,14 +29,14 @@ os.chdir('e:/Ruonan/Projects in the lab/mdm_covid19/behavior/mdm_covid19_data')
 
 data = pd.read_csv('data_for_classification.csv')
 
-data.head
+print(data.head)
 
 #%%
 # columns of high/low uncertainty attitude
 # take the upper 40% and lower 40%
-data.columns
+# print(data.columns)
 
-quant= 0.4
+quant= 0.1
 lower_q = data.quantile(quant, axis = 0)
 upper_q = data.quantile(1-quant, axis = 0)
 
@@ -80,7 +80,30 @@ for i in range(data.shape[0]):
     
 data['ambig_corr.med.label']
 
-#%%
+#%% label error
+plt.figure()
+plt.hist(data['error.med'])
+plt.show()
+
+plt.figure()
+plt.hist(data['error.mon'])
+plt.show()
+
+data['error.mon.label'] = np.nan
+data['error.mon.label'][data['error.mon'] > 0] = 1
+data['error.mon.label'][data['error.mon'] == 0] = 0
+sum(data['error.mon.label']==0)
+sum(data['error.mon.label'] == 1)
+
+
+data['error.med.label'] = np.nan
+data['error.med.label'][data['error.med'] > 0] = 1
+data['error.med.label'][data['error.med'] == 0] = 0
+sum(data['error.med.label']==0)
+sum(data['error.med.label'] == 1)
+
+#%% logistic regression with cross-validation
+
 
 # classifying monetary ambiguity attitude
 
@@ -89,41 +112,32 @@ data_classify = data[(data['error.mon'] < 0.5) & (data['ambig_corr.mon.label'].n
 data_classify.columns
 data_classify
 
+# classify errors, do not exclude
+data_classify = data[data['error.mon.label'].notnull()]
+
+y = data_classify['error.med.label']
+print(y)
+
 y = data_classify['ambig_corr.mon.label']
-y
+print(y)
 
 X = data_classify.iloc[:,1:69]
-X
+print(X)
 
-# clf = LogisticRegression(random_state=0).fit(x, y)
-# clf.score(x, y)
+# number of subjects
+print(X.shape)
 
-#%% logistic regression with cross-validation
-clf_cv = LogisticRegressionCV(cv=10, random_state=0, max_iter=1000).fit(X, y)
-clf_cv.scores_[1].mean()
+clf_cv = LogisticRegressionCV(cv=10, random_state=0, max_iter=2000).fit(X, y)
+print(clf_cv.scores_[1].mean())
 clf_cv.scores_[1].shape
-clf_cv.scores_[1]
 
-# coefficients
-clf_cv.coef_.shape
-clf_cv.coef_
-
-# sort and find 10 bset predictors
-coef_sorted = np.sort(clf_cv.coef_)
-coef_idx = np.argsort(clf_cv.coef_)
-print(coef_sorted)
-print(coef_idx)
-
-# what are the 10 best predictors
-X.columns[coef_idx[0,0:9]]
-
-# clf_cv.score(x, y)
 
 #%% cross validation
 data_classify = data[(data['error.mon'] < 0.5) & (data['ambig_corr.mon.label'].notnull())]
 
 y = data_classify['ambig_corr.mon.label']
 X = data_classify.iloc[:,1:69]
+
 
 n_iter = 50
 
@@ -214,9 +228,9 @@ plt.legend(loc="lower right")
 plt.show()
 
 #%% ROC many iterations
-data_classify = data[(data['error.med'] < 0.5) & (data['ambig_corr.med.label'].notnull())]
+data_classify = data[(data['error.mon'] < 0.5) & (data['ambig_corr.mon.label'].notnull())]
 
-y = data_classify['ambig_corr.med.label']
+y = data_classify['ambig_corr.mon.label']
 X = data_classify.iloc[:,1:69]
 
 n_iter =50
@@ -230,7 +244,7 @@ for i in range(n_iter):
     
     # Predict confidence scores for samples.
     # The confidence score for a sample is the signed distance of that sample to the hyperplane.
-    y_score = LogisticRegression(random_state=2,max_iter=1000).fit(X_train, y_train).decision_function(X_test)
+    y_score = LogisticRegression(max_iter=1000).fit(X_train, y_train).decision_function(X_test)
     
     # Compute ROC curve and ROC area for each class
     fpr = dict()
@@ -255,7 +269,7 @@ for i in range(n_iter):
     plt.ylim([0.0, 1.05])
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('Receiver operating characteristic, Monetary Ambiguity')
+    plt.title('Receiver operating characteristic, Monetaru Ambiguity')
     plt.legend(loc="lower right")
     plt.show()
 
@@ -271,5 +285,19 @@ print(classification_report(y_test, y_pred, target_names=['class0', 'class1']))
 y_pred = LogisticRegressionCV(random_state=0,max_iter=1000).fit(X, y).predict(X)
 print(classification_report(y, y_pred, target_names=['class0', 'class1']))
 
-#%% 
+#%% Plot predictors distribution, for with or without errors
+# 'actions_gro_hygiene', 'ambig1_news_sources_2', 'actions_leisureb4'
+# predictor_name = 'actions_leisureb4'
+# label_name = 'error.mon.label'
 
+# 'actions_gro_hygiene', 'actions_leisureb4', 'ambig1_news_sources_3','ambig1_track_deaths'
+predictor_name = 'ambig1_track_deaths'
+label_name = 'error.med.label'
+
+plt.figure()
+plt.hist(data[predictor_name][data[label_name]==0], alpha=0.5)
+plt.hist(data[predictor_name][data[label_name]==1], alpha=0.5)
+plt.legend(['No error','With error'])
+plt.title(predictor_name)
+
+plt.show()
