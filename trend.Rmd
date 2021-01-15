@@ -28,12 +28,29 @@ setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/mdm_covid19_data")
 load("data_all_444sub_rename.Rda")
 load("data_all_444sub_rename_header.Rda")
 load("data_all_444sub_attitude.Rda")
-tracker <- read.csv("testing_by_state.csv", header = TRUE)
+
+# tracker <- read.csv("testing_by_state.csv", header = TRUE)
+tracker <- read.csv("all_states_excel_formatted.csv", header=TRUE)
+
+state_name <- read.csv("state_name.csv", header=TRUE)
 
 # combine data
 data.all <- merge(data.all, data.attitude, by = "mTurkCode")
 data.all$age <- as.numeric(as.character(data.all$age)) + 17 # correct coding
 rm(data.attitude)
+```
+
+```{r}
+# typeof(tracker)
+
+# tracker
+# data.all
+# state_name
+colnames(state_name)[2] <- "State"
+
+tracker <- merge(tracker, state_name, by="State")
+
+tracker
 ```
 
 # Preprocess some data columns, run the following chunks before further analysis:
@@ -55,25 +72,57 @@ data.all$zipcode<- clean.zipcodes(data.all$zip_postal_code)
 
 State based on zip
 ```{r}
+colnames(zipcode)
 colnames(zipcode)[1] = "zipcode"
 data.all <- merge(data.all, zipcode, by="zipcode")
 ```
 
+correct week
+```{r}
+# in the original data sheet, week 1 refers to the most recent ween
 
+typeof(tracker$Week)
+tracker$Week <- 7-tracker$Week
+```
+
+
+```{r}
+
+Week <- c(1,2,3,4,5,6)
+date <- c("2020-03-29", "2020-04-05", "2020-04-12", "2020-04-19", "2020-04-26", "2020-05-03")
+
+timing <- data.frame(Week, date)
+
+timing$Week <- as.integer(timing$Week)
+
+tracker <- merge(tracker, timing, by="Week")
+
+# timing
+```
+
+Change column names
+```{r}
+# colnames(tracker)
+colnames(tracker)[1] <- "week"
+colnames(tracker)[14] <- "state"
+colnames(tracker)
+```
+
+Change data type
 ```{r}
 tracker$state <- as.character(tracker$state)
 tracker$week <- as.integer(as.character(tracker$week))
-tracker$testing <- as.numeric(tracker$testing)
+# tracker$testing <- as.numeric(tracker$testing)
 
 # no data for AL
-typeof(tracker$testing)
+# typeof(tracker$testing)
 ```
 
 save into spread sheet
 ```{r}
 # setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/mdm_covid19_data")
 # write.csv(header,"data_header_new.csv", row.names = FALSE)
-# write.csv(data.all,"data_all_444sub_new.csv", row.names = FALSE)
+# write.csv(data.all,"data_all_with_tracker.csv", row.names = FALSE)
 ```
 End of preprocessing
 
@@ -81,24 +130,109 @@ End of preprocessing
 
 # plot trend of testing
 ```{r}
-large_states <- c("FL", "CA", "NY", "OH", "TX")
+colnames(tracker)
+```
 
-ggplot(tracker[is.element(tracker$state, large_states),], aes(x = week, y = testing, color = state)) +
+
+```{r}
+large_states <- c("FL", "CA", "NY", "OH", "TX")
+```
+
+```{r}
+ggplot(tracker[is.element(tracker$state, large_states),], aes(x = week, y = Avg.positive.tests, color = state)) +
+  geom_point() +
+  scale_x_continuous(breaks=seq(1,6,1)) + 
+  ggtitle("Number of Total Positive Testing (3/29 ~ 5/9/2020)")
+  
+ggplot(tracker[is.element(tracker$state, large_states),], aes(x = week, y = Avg.total.test.results, color = state)) +
   geom_point() +
   scale_x_continuous(breaks=seq(1,6,1)) +
-  ggtitle("Number of Testing (3/29 ~ 5/9/2020)")
+  ggtitle("Number of Total Testing Administered (3/29 ~ 5/9/2020)")
+
+ggplot(tracker[is.element(tracker$state, large_states),], aes(x = week, y = Avg.deaths, color = state)) +
+  geom_point() +
+  scale_x_continuous(breaks=seq(1,6,1)) +
+  ggtitle("Number of Total Death (3/29 ~ 5/9/2020)")
+
+ggplot(tracker[is.element(tracker$state, large_states),], aes(x = week, y = Avg.cumulative.hospitalized, color = state)) +
+  geom_point() +
+  scale_x_continuous(breaks=seq(1,6,1)) +
+  ggtitle("Number of Total Hospitalizations (3/29 ~ 5/9/2020)")
+
+ggplot(tracker[is.element(tracker$state, large_states),], aes(x = week, y = Avg.current.hospitalized, color = state)) +
+  geom_point() +
+  scale_x_continuous(breaks=seq(1,6,1)) +
+  ggtitle("Number of Hospitalizations of This Week (3/29 ~ 5/9/2020)")
+
+
+ggplot(tracker[is.element(tracker$state, large_states),], aes(x = week, y = Avg.hospitalized.increase, color = state)) +
+  geom_point() +
+  scale_x_continuous(breaks=seq(1,6,1)) +
+  ggtitle("Number of Daily Hospitalization Increase (3/29 ~ 5/9/2020)")
 ```
+
+```{r}
+data_all_sub$Week <- NA
+
+
+for (i in 1:nrow(data.all)) {
+  if (data.all$state[i] != "") {
+    data.all$Week[i] <-
+      tracker$Week[as.Date(data.all$StartDate[i])>=as.Date(tracker$date) &
+                        as.Date(data.all$StartDate[i])<as.Date(tracker$date)+7 &
+                        as.character(data.all$state[i]) == tracker$state]
+  }
+}
+```
+
 
 # combine data with case tracker, matching time
 ```{r}
-data.all$testing <- NA
+# data.all$testing <- NA
+data.all$Avg.positive.tests <- NA
+data.all$Avg.total.test.results <- NA
+data.all$Avg.deaths <- NA
+data.all$Avg.cumulative.hospitalized <- NA
+data.all$Avg.current.hospitalized <- NA
+data.all$Avg.hospitalized.increase <- NA
+
 data.all$week <- NA
 
 # if within the week
 for (i in 1:nrow(data.all)) {
-  if (data.all$state[i] != "AL") {
-    data.all$testing[i] <-
-      tracker$testing[as.Date(data.all$StartDate[i])>=as.Date(tracker$date) &
+  if (data.all$state[i] != "") {
+    # data.all$testing[i] <-
+    #   tracker$testing[as.Date(data.all$StartDate[i])>=as.Date(tracker$date) &
+    #                     as.Date(data.all$StartDate[i])<as.Date(tracker$date)+7 &
+    #                     as.character(data.all$state[i]) == tracker$state]
+    
+    data.all$Avg.positive.tests[i] <-
+      tracker$Avg.positive.tests[as.Date(data.all$StartDate[i])>=as.Date(tracker$date) &
+                        as.Date(data.all$StartDate[i])<as.Date(tracker$date)+7 &
+                        as.character(data.all$state[i]) == tracker$state]
+    
+    data.all$Avg.total.test.results[i] <-
+      tracker$Avg.total.test.results[as.Date(data.all$StartDate[i])>=as.Date(tracker$date) &
+                        as.Date(data.all$StartDate[i])<as.Date(tracker$date)+7 &
+                        as.character(data.all$state[i]) == tracker$state]
+    
+    data.all$Avg.deaths[i] <-
+      tracker$Avg.deaths[as.Date(data.all$StartDate[i])>=as.Date(tracker$date) &
+                        as.Date(data.all$StartDate[i])<as.Date(tracker$date)+7 &
+                        as.character(data.all$state[i]) == tracker$state]
+    
+    data.all$Avg.cumulative.hospitalized[i] <-
+      tracker$Avg.cumulative.hospitalized[as.Date(data.all$StartDate[i])>=as.Date(tracker$date) &
+                        as.Date(data.all$StartDate[i])<as.Date(tracker$date)+7 &
+                        as.character(data.all$state[i]) == tracker$state]
+    
+    data.all$Avg.current.hospitalized[i] <-
+      tracker$Avg.current.hospitalized[as.Date(data.all$StartDate[i])>=as.Date(tracker$date) &
+                        as.Date(data.all$StartDate[i])<as.Date(tracker$date)+7 &
+                        as.character(data.all$state[i]) == tracker$state]
+    
+    data.all$Avg.hospitalized.increase[i] <-
+      tracker$Avg.hospitalized.increase[as.Date(data.all$StartDate[i])>=as.Date(tracker$date) &
                         as.Date(data.all$StartDate[i])<as.Date(tracker$date)+7 &
                         as.character(data.all$state[i]) == tracker$state]
     
@@ -111,18 +245,112 @@ for (i in 1:nrow(data.all)) {
 
 ```
 
+
+
 ```{r}
 data.all$ambig1_react_state <- as.integer(as.character(data.all$ambig1_react_state))
 
 data.all$ambig1_gov_local <- as.integer(as.character(data.all$ambig1_gov_local))
+
+data.all$anx_feelingnow <- as.integer(as.character(data.all$anx_feelingnow))
 ```
 
-#
 ```{r}
-ggplot(data.all[is.element(data.all$state, large_states),], aes(x=testing, y=ambig1_react_state)) +
-  geom_point()
+colnames(tracker)
+```
 
+# relationship between tracker and state gov reaction
+```{r}
+# ggplot(data.all[is.element(data.all$state, large_states),], aes(x=testing, y=ambig1_react_state)) +
+#   geom_point()
+
+data2plot <- data.all %>% select(c(state, Avg.hospitalized.increase, ambig1_react_state))
+data2plot <- data2plot %>% filter(!is.na(ambig1_react_state))
+
+data2plot$ambig1_react_state <- ordered(data2plot$ambig1_react_state, levels=1:5)
+
+
+ggplot(data2plot[is.element(data2plot$state, large_states),], 
+       aes(x=ambig1_react_state, y=Avg.hospitalized.increase)) + 
+  geom_violin() + 
+  geom_jitter(shape=16, 
+            position=position_jitter(width=0.2, height=0.01),
+            size=1,alpha=0.3) +
+  scale_x_discrete(labels=c("Completely overreacting", "Somewhat overreacting","Appropriate","Somewhat insufficient", "Completely insufficient")) +
+  rotate_x_text(30) +
+  xlab("How is state gov reacting") + ylab("number of hospitalization increase")
+
+fit <- lm(Avg.hospitalized.increase ~ ambig1_react_state
+  ,data2plot[is.element(data2plot$state, large_states),])
+
+summary(fit)
+
+anova(fit)
+```
+
+# relationship between tracker and state gov well-informed
+```{r}
+data2plot <- data.all %>% select(c(state, testing, ambig1_gov_local))
+data2plot <- data2plot %>% filter(!is.na(ambig1_gov_local))
+
+data2plot$ambig1_gov_local <- ordered(data2plot$ambig1_gov_local, levels=1:7)
+
+
+ggplot(data2plot[is.element(data2plot$state, large_states),], 
+       aes(x=ambig1_gov_local, y=testing)) + 
+  geom_violin() + 
+  geom_jitter(shape=16, 
+            position=position_jitter(width=0.2, height=0.01),
+            size=1,alpha=0.3) +
+  scale_x_discrete(labels=c("Very","Moderately","Somewhat","Uncertain","Somewhat not", "Moderately not","Very not")) +
+  rotate_x_text(30) +
+  xlab("How well-informed is state go") + ylab("number of testing")
+
+fit <- lm(testing ~ ambig1_gov_local
+  ,data2plot[is.element(data2plot$state, large_states),])
+
+summary(fit)
+
+anova(fit)
+```
+
+# relationship between tracker and anxiety
+```{r}
+data2plot <- data.all %>% select(c(state, Avg.deaths, anx_feelingnow))
+data2plot <- data2plot %>% filter(!is.na(anx_feelingnow))
+
+data2plot$anx_feelingnow <- ordered(data2plot$anx_feelingnow, levels=1:7)
+
+
+ggplot(data2plot[is.element(data2plot$state, large_states),], 
+       aes(x=anx_feelingnow, y=Avg.deaths)) + 
+  geom_violin() + 
+  geom_jitter(shape=16, 
+            position=position_jitter(width=0.2, height=0.01),
+            size=1,alpha=0.3) +
+  scale_x_discrete(labels=c("Not at all", "A little", "Somewhat", "A fair amount", "Much", "Very much", "Extremely")) +
+  rotate_x_text(30) +
+  xlab("How anxious") + ylab("number of deaths")
+
+fit <- lm(Avg.deaths ~ anx_feelingnow
+  ,data2plot[is.element(data2plot$state, large_states),])
+
+summary(fit)
+
+anova(fit)
+```
+
+
+```{r}
 cor.test(~ testing + ambig1_react_state,
+         data.all[is.element(data.all$state, large_states),]
+         )
+
+cor.test(~ testing + anx_feelingnow,
+         data.all[is.element(data.all$state, large_states),]
+         )
+
+cor.test(~ testing + ambig1_gov_local,
          data.all[is.element(data.all$state, large_states),]
          )
 ```
@@ -133,18 +361,52 @@ cor.test(~ testing + ambig1_react_state,
 ```{r}
 data.all$week <- ordered(data.all$week, levels = 1:6)
 data.all$state <- as.factor(data.all$state)
+data.all$highest_education
+data.all$age
+data.all$political_typology
+data.all$household.earnings
+data.all$gender
 
-fit <- lm(ambig1_react_state ~ state + testing + week, 
+fit <- lm(ambig1_react_state ~ state + Avg.total.test.results + Avg.positive.tests + Avg.deaths + Avg.hospitalized.increase + week + anx_feelingnow, 
           data.all[is.element(data.all$state, large_states),])
 
+fit <- lm(ambig1_react_state ~ state + testing + week + anx_feelingnow, 
+          data.all)
+
 fit <- lm(ambig1_gov_local ~ state + testing + week, 
+          data.all[is.element(data.all$state, large_states),])
+
+fit <- lm(anx_feelingnow ~ state + testing + week + ambig1_react_state, 
           data.all[is.element(data.all$state, large_states),])
 
 summary(fit)
 
 anova(fit)
+```
 
-data.all$ambig1_
+# variable selection
+```{r}
+library(leaps)
+```
+
+```{r}
+ data.all[is.element(data.all$state, large_states),]$state
+temp$state
+```
+
+
+```{r}
+
+temp <- data.all[is.element(data.all$state, large_states),]
+temp$state <- as.factor(as.character(temp$state))
+
+leaps<-regsubsets(anx_feelingnow ~ state + testing + week + ambig1_react_state, 
+          temp)
+
+# view results
+summary(leaps)
+
+plot(leaps,scale="r2")
 ```
 
 
