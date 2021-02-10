@@ -1,0 +1,258 @@
+---
+title: "preprocess"
+author: ruonanjia
+---
+```{r}
+library(dplyr)
+library(ggplot2)
+
+```
+
+
+```{r}
+rm(list = ls())
+```
+
+# Initial cleaning
+##read data
+```{r}
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/batch_data/phase2")
+# data downloaded from qualtrics, with numeric code 
+
+# young subjects
+# data.raw = read.csv("MDM_R&A_COVID-19_Jan2021_Phase2_February+5,+2021_11.02.csv")
+
+# read trial parameters of the DM task
+trial.param <- read.csv("trialsinfo_COVID_19.csv", header = TRUE, )
+# View(data.raw)
+# View(trial.param)
+```
+
+```{r}
+data.raw
+```
+
+##Extract batch data
+```{r}
+
+# get rid of excessive header
+header <- data.raw[1:2, ]
+data.raw <- data.raw[-c(1,2),]
+# View(header)
+# get rid of preview and incomplete data
+data.raw <- data.raw[!data.raw$DistributionChannel == "preview",]
+# data.raw <- data.raw[data.raw$Finished == 1, ] # use progress.
+data.raw$Progress <- as.numeric(as.character(data.raw$Progress))
+data.raw <- data.raw[data.raw$Progress > 75, ]
+data.raw <- data.raw[!is.na(as.numeric(as.character(data.raw$mTurkCode))), ]
+
+nrow(data.raw) # check numner of participants
+
+
+data.batch <- data.raw
+
+nrow(data.batch)
+
+```
+
+##attention check questions, count wrong answers
+```{r}
+# 
+# # or match batch by survey code
+# data.batch <- data.raw[is.element(data.raw$mTurkCode, batch$Answer.surveycode),]
+
+# data.batch <- data.raw
+# colnames(data.batch)
+ac.id <- c("AC_eg", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7", "AC8", "AC9", "AC10", "AC11", "AC12")
+
+is.element(ac.id, colnames(data.batch))
+
+col.no <- match(ac.id, colnames(data.batch))
+colnames(data.batch)[col.no]
+
+att.check <- data.batch[, col.no]
+
+correct <- c(2,2,5,5,3,3,2,1,10,6,1,3)
+
+for (i in 1:nrow(att.check)) {
+  att.check$wrong[i] = 0 # count how many wrong answers
+  for (j in 1:12) {
+    if (att.check[i, j] != correct[j]) {
+      att.check$wrong[i] <- att.check$wrong[i]+1
+    }
+  }
+}
+
+data.batch$AttCheck <- att.check$wrong
+
+# check the column att.check$wrong, indicating the number of wrong answers
+View(att.check)
+# those with more than half ATT check Questions wrong
+as.character(att.check$mTurkCode[att.check$wrong > 6])
+
+```
+
+## Save data
+```{r}
+data.all.phase2 <- data.batch
+# View(data.all.phase2)
+# nrow(data.all.phase2)
+
+# save 
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/batch_data/phase2")
+save(data.all.phase2, file = "data_all_phase2_306sub.Rda")
+# save(header, file = "data_all_phase2_306sub_header.Rda")
+```
+# load data
+```{r}
+# data.all.phase2 <- data.batch
+# View(data.all.phase2)
+# nrow(data.all.phase2)
+
+# save 
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/batch_data/phase2")
+load("data_all_phase2_306sub.Rda")
+
+```
+Check if the Mturker entered the survey code the same as Qualtrilcs code
+Check for multiple responses from same MTurker
+
+# match mTurk worker IDs
+Load batch details
+```{r}
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/batch_data/Phase2")
+batch1 <- read.csv("Batch_4313780_batch_results.csv")
+batch2 <- read.csv("Batch_4316494_batch_results.csv")
+batch3 <- read.csv("Batch_4317364_batch_results.csv")
+batch4 <- read.csv("Batch_4319627_batch_results.csv")
+batch5 <- read.csv("Batch_4321143_batch_results.csv")
+batch6 <- read.csv("Batch_4322723_batch_results.csv")
+batch7 <- read.csv("Batch_4324048_batch_results.csv")
+batch8 <- read.csv("Batch_4325105_batch_results.csv")
+
+batch1_id <- batch1 %>% select(Answer.surveycode, WorkerId)
+# correct the survey code. This participant mistakenly put worker ID as the survey code.
+batch1_id$Answer.surveycode <- as.integer(as.character(batch1_id$Answer.surveycode))
+batch1_id$Answer.surveycode[99] = 77640967
+
+batch2_id <- batch2 %>% select(Answer.surveycode, WorkerId)
+batch3_id <- batch3 %>% select(Answer.surveycode, WorkerId)
+batch4_id <- batch4 %>% select(Answer.surveycode, WorkerId)
+batch5_id <- batch5 %>% select(Answer.surveycode, WorkerId)
+batch6_id <- batch6 %>% select(Answer.surveycode, WorkerId)
+batch7_id <- batch7 %>% select(Answer.surveycode, WorkerId)
+batch8_id <- batch8 %>% select(Answer.surveycode, WorkerId)
+
+batch_id <- rbind(batch2_id, batch3_id, batch4_id, batch5_id, batch6_id, batch7_id, batch8_id)
+batch_id$Answer.surveycode <- as.integer(as.character(batch_id$Answer.surveycode))
+
+batch_id <- rbind(batch1_id, batch_id)
+# setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
+# 
+# save(batch, file="batch_info.Rda")
+```
+
+```{r}
+batch_id
+nrow(batch_id)
+```
+
+if data and batch record match with each other
+```{r}
+# colnames(batch)
+# batch7$Answer.surveycode
+data.all.phase2$mTurkCode <- as.integer(as.character(data.all.phase2$mTurkCode))
+
+sum(!is.element(batch_id$Answer.surveycode, data.all.phase2$mTurkCode))
+batch_id$Answer.surveycode[!is.element(batch_id$Answer.surveycode, data.all.phase2$mTurkCode)]
+
+sum(!is.element(data.all.phase2$mTurkCode, batch_id$Answer.surveycode))
+data.all.phase2$mTurkCode[!is.element(data.all.phase2$mTurkCode, batch_id$Answer.surveycode)]
+
+```
+
+Merge mTurkID
+```{r}
+colnames(batch_id)[1] <- "mTurkCode"
+data.all.phase2<- merge(data.all.phase2, batch_id, by="mTurkCode")
+View(data.all.phase2)
+```
+
+
+# take out task data
+```{r}
+colnames(data.all.phase2)
+colnames(data.all.phase2)[c(29:41,43:54,56:79,89:101,103:113,115:139,140:149,151:154,1,278)]
+
+# choice, rating, and ambiguity estimation
+data.task.phase2 <- data.all.phase2[,c(29:41,43:54,56:79,89:101,103:113,115:139,140:149,151:154,1,278)]
+
+# View(data.task)
+# colnames(data.task)
+# change column names for ambiguity estimation
+# colnames(data.task)[109:112] <- c("a24.e", "a50.e", "a74.e", "a100.e")
+# colnames(data.task)
+
+```
+
+
+extract choice data
+```{r}
+# extract choice data and attache trial parameters
+# concatenate all subjects
+
+# colnames(trial.param)
+# colnames(data.task.phase2)
+
+for (i in 1:nrow(data.task.phase2)) {
+  # single subject choice
+  sub.choice <- trial.param
+  choice <- data.task.phase2[i, 1:98]
+  
+  id <- as.factor(as.character(data.task.phase2$mTurkCode[i])) # MTurk code
+  WorkerID <- as.factor(as.character(data.task.phase2$WorkerId[i])) # worker ID
+  
+  sub.choice$id <- id
+  sub.choice$WorkderID <- WorkerID
+  
+  sub.choice$choice <- as.numeric(t(choice)) # transpose
+  
+  # concatenate
+  if (i == 1) {
+    data.choice <- sub.choice
+  } else {
+    data.choice <- rbind(data.choice, sub.choice)
+  }
+}
+
+View(data.choice)
+
+# typeof(data.choice$val)
+
+data.choice.mon.phase2 <- data.choice[data.choice$is_med == 0, ]
+data.choice.med.phase2 <- data.choice[data.choice$is_med == 1, ]
+
+
+data.choice.mon.phase2$val <- as.numeric(as.character(data.choice.mon$val))
+data.choice.mon.phase2$prob <- as.factor(data.choice.mon$prob)
+data.choice.mon.phase2$ambig <- as.factor(data.choice.mon$ambig)
+
+data.choice.med.phase2$val <- as.factor(data.choice.med$val)
+data.choice.med.phase2$prob <- as.factor(data.choice.med$prob)
+data.choice.med.phase2$ambig <- as.factor(data.choice.med$ambig)
+```
+
+save data
+```{r}
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/batch_data/Phase2")
+
+
+save(data.choice.mon.phase2, file="data_choice_phase2_mon_306sub.Rda")
+save(data.choice.med.phase2, file="data_choice_phase2_med_306sub.Rda")
+
+```
+
+```{r}
+data.choice.med.phase2
+```
+
