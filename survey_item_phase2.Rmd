@@ -1,0 +1,450 @@
+---
+title: "R Notebook"
+author: ruonanjia
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+rm(list = ls())
+```
+
+load library
+```{r}
+library(ggplot2)
+library(zipcode) # install only available through archive
+library(maps)
+library(ggpubr)
+library("PerformanceAnalytics") # for chart correlation
+library(usmap) # for plotting data us maps
+library(scales) # for muted() function
+library(tidyverse)
+# library(memisc)
+```
+
+# load data and preprocess
+```{r}
+# setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/mdm_covid19_data")
+load("data_all_phase2_306sub.Rda")
+load("data_all_phase2_306sub_header.Rda")
+load("data_all_phase2_306sub_attitude.Rda")
+
+```
+
+```{r}
+colnames(data.all.phase2)
+```
+
+merge suvey response and attitude
+```{r}
+colnames(data.attitude.phase2)[1] <- "WorkerId"
+# combine data
+data.all.phase2 <- merge(data.all.phase2, data.attitude.phase2, by = "WorkerId")
+```
+
+delete choice data
+```{r}
+# colnames(data.all.phase2)[5:155]
+# colnames(data.all.phase2)
+data.all.phase2 <-data.all.phase2[, -c(5:155)]
+```
+
+```{r}
+# data.all.phase2$age
+data.all.phase2$age <- as.numeric(as.character(data.all.phase2$age)) + 17 # correct coding
+rm(data.attitude.phase2)
+```
+
+save into spread sheet
+```{r}
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/mdm_covid19_data")
+# write.csv(header,"data_header_new.csv", row.names = FALSE)
+write.csv(data.all.phase2,"data_all_phase2_306sub_with_attitude.csv", row.names = FALSE)
+```
+
+# Preprocess some data columns, run the following chunks before further analysis:
+
+Separate young and old, compare with 60 yr
+```{r}
+data.all.phase2$is.young <- 1
+data.all.phase2$is.young[data.all.phase2$age >= 60] = 0 
+data.all.phase2$is.young <- as.factor(data.all.phase2$is.young)
+```
+
+zipcode
+some people do not answer a legitamate number for zipcode
+```{r}
+data.all.phase2$zip_postal_code
+
+data.all.phase2$state_residing
+```
+
+Clean zipcode
+```{r}
+# clean zipcode
+data.all.phase2$zip_postal_code <- as.numeric(as.character(data.all.phase2$zip_postal_code))
+
+data(zipcode)
+data.all.phase2$zipcode<- clean.zipcodes(data.all.phase2$zip_postal_code)
+```
+
+```{r}
+# data.all.phase2$zip_postal_code
+sum(is.na(data.all.phase2$zip_postal_code))
+data.all.phase2$state_residing[is.na(data.all.phase2$zip_postal_code)]
+```
+
+State
+```{r}
+# zipcode
+colnames(zipcode)[1]
+colnames(zipcode)[1] = "zipcode"
+
+```
+
+figure out which subjects do not have improper zipcode
+```{r}
+# temp <- merge(data.all.phase2, zipcode, by="zipcode") 
+
+# id_missing_state <- data.all.phase2$WorkerId[!is.element(data.all.phase2$WorkerId, temp$WorkerId)]
+
+# data.all.phase2$WorkerId[!is.element(data.all.phase2$WorkerId, temp$WorkerId)]
+
+# data.all.phase2$state_residing[is.element(data.all.phase2$WorkerId, id_missing_state)]
+
+```
+
+
+These subjects have missing proper zipcode
+IDs: A1P3Z24Y6GRNVA A2GPUGW5NHLL88 A2WWYVKGZZXBOB A3IXEBVJ9BH16I A5Z9DOJRPICW1
+States: "KY", "AZ", "OH", "NY", "OH"
+Fake zipcode: 40006, 84536, 43001, 00501, 43001
+in order to combine sheets properly, assign a fake zipcode to these subjects
+
+```{r}
+# zipcode$zipcode[zipcode$state=="NY"][1:10]
+
+data.all.phase2$zipcode[is.element(data.all.phase2$WorkerId, id_missing_state)] <- c(40006, 84536, 43001, 10003, 43001)
+```
+
+```{r}
+data.all.phase2 <- merge(data.all.phase2, zipcode, by="zipcode")
+```
+
+End of preprocessing
+
+
+# word cloud
+```{r}
+# install.packages("wordcloud2")
+
+library(wordcloud2)
+# install.packages("tm")
+library(tm)
+```
+
+```{r}
+text <- data.all.phase2$gen_feeling_covid
+```
+
+```{r}
+# Create a corpus  
+docs <- Corpus(VectorSource(text))
+```
+
+clean text
+```{r}
+docs <- docs %>%
+  tm_map(removeNumbers) %>%
+  tm_map(removePunctuation) %>%
+  tm_map(stripWhitespace)
+docs <- tm_map(docs, content_transformer(tolower))
+docs <- tm_map(docs, removeWords, stopwords("english"))
+```
+
+```{r}
+dtm <- TermDocumentMatrix(docs) 
+matrix <- as.matrix(dtm) 
+words <- sort(rowSums(matrix),decreasing=TRUE) 
+df_wordcloud <- data.frame(word = names(words),freq=words)
+```
+
+```{r}
+# View(df_wordcloud)
+
+draw <- df_wordcloud[df_wordcloud$freq>0,]
+
+# View(draw)
+# clean words mannually
+draw_delete <- draw[!is.element(draw$word, c("will", "people", "feel", "get", "just", "think", "feeling", "like", "can", "now", "getting", "dont", "year", "want", "things", "many", "really", "also", "take", "much", "used", "ive", "etc")),]
+```
+
+```{r}
+wordcloud2(data=draw_delete, size=1.6, color='random-dark')
+```
+
+## export text response for manual labeling
+```{r}
+nrow(data.all.phase2)
+nrow(data.all)
+
+text_phase1 <- data.all %>% select(WorkerId, gen_feeling_covid)
+
+text_phase2 <- data.all.phase2 %>% select(WorkerId, gen_feeling_covid)
+
+View(text_phase1)
+View(text_phase2)
+
+colnames(text_phase1)[2] <- "gen_feeling_covid_phase1"
+colnames(text_phase2)[2] <- "gen_feeling_covid_phase2"
+
+text_merge <- merge(text_phase1, text_phase2, by="WorkerId")
+
+View(text_merge)
+```
+
+
+```{r}
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/mdm_covid19_data")
+# write.csv(header,"data_header_new.csv", row.names = FALSE)
+write.csv(text_merge,"how_are_you_feeling_phase1n2.csv", row.names = FALSE)
+```
+
+# vaccine
+
+```{r}
+data.all.phase2$vacc_already <- as.integer(as.character(data.all.phase2$vacc_already))
+data.all.phase2$vacc_already[data.all.phase2$vacc_already==1] = 1
+data.all.phase2$vacc_already[data.all.phase2$vacc_already==4] = 2
+data.all.phase2$vacc_already[data.all.phase2$vacc_already==5] = 0
+
+data.all.phase2$vacc_already<- as.factor(data.all.phase2$vacc_already)
+
+ggplot(data.all.phase2, aes(x=vacc_already)) + 
+  geom_histogram(stat="count")+
+  ggtitle("Numer of doses of vaccines received")
+```
+
+##willingness
+1-Definitely not
+2-Very unlikely
+3-Somewhat unlikely
+4- Not sure
+5- Somewhat likely
+6-Very likely
+7-Definitely
+```{r}
+data.all.phase2$vacc_willing <- as.factor(as.character(data.all.phase2$vacc_willing))
+
+labels = c("Already vaccinated or NA", "Definitely not", "Very unlikely", "Somewhat unlikely", "Not sure", "Somewhat likely", "Very likely", "Definitely")
+
+ggplot(data.all.phase2, aes(x=vacc_willing, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  rotate_x_text(60) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("Willingness to get vaccines")
+```
+
+willingness and uncertainty attitudes
+```{r}
+labels = c("Already vaccinated or NA", "Definitely not", "Very unlikely", "Somewhat unlikely", "Not sure", "Somewhat likely", "Very likely", "Definitely")
+
+ggplot(data.all.phase2[data.all.phase2$error.med<0.5,], aes(x=vacc_willing, y=ambig_corr.med, color=vacc_willing)) +
+  geom_violin() +
+  geom_jitter(alpha=0.5) +
+  scale_x_discrete(labels=labels) +
+  rotate_x_text(60)
+```
+
+##efficacy
+1-Extremely ineffective
+2-Very ineffective
+3-Somewhat ineffective
+4-Neither effective nor ineffective
+5-Somewhat effective
+6-Very effective
+7-Extremely effective
+```{r}
+data.all.phase2$vacc_effect <- as.factor(as.character(data.all.phase2$vacc_effect))
+
+labels = c("Extremely ineffective", "Very ineffective", "Somewhat ineffective", "Neither effective nor ineffective", "Somewhat effective", "Very effective", "Extremely effective")
+
+
+ggplot(data.all.phase2, aes(x=vacc_effect, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  rotate_x_text(60) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("Estimation Vaccinie efficacy")
+```
+
+uncertainty attitude and efficacy estimation
+```{r}
+labels = c("Extremely ineffective", "Very ineffective", "Somewhat ineffective", "Neither effective nor ineffective", "Somewhat effective", "Very effective", "Extremely effective")
+
+ggplot(data.all.phase2[data.all.phase2$error.mon<0.5,], aes(x=vacc_effect, y=ambig_corr.mon, color=vacc_effect)) +
+  geom_violin() +
+  geom_jitter(alpha=0.5) +
+  scale_x_discrete(labels=labels) +
+  rotate_x_text(60)
+```
+
+
+##efficacy confidence
+
+1-Absolutely unconfident
+2-Very unconfident
+3-Somewhat unconfident
+4-Not sure
+5-Somewhat confident
+6-Very confident
+7-Absolutely confident
+```{r}
+data.all.phase2$vacc_effect_conf <- as.factor(as.character(data.all.phase2$vacc_effect_conf))
+
+labels = c("Absolutely unconfident", "Very unconfident", "Somewhat unconfident", "Not sure", "Somewhat confident", "Very confident", "Absolutely confident")
+
+
+ggplot(data.all.phase2, aes(x=vacc_effect_conf, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  rotate_x_text(60) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("Confidence in estimatiing Vaccinie efficacy")
+```
+
+uncertainty attitude and efficacy estimation confidence
+```{r}
+labels = c("Absolutely unconfident", "Very unconfident", "Somewhat unconfident", "Not sure", "Somewhat confident", "Very confident", "Absolutely confident")
+
+ggplot(data.all.phase2[data.all.phase2$error.med<0.5,], aes(x=vacc_effect_conf, y=ambig_corr.med, color=vacc_effect_conf)) +
+  geom_violin() +
+  geom_jitter(alpha=0.5) +
+  scale_x_discrete(labels=labels) +
+  rotate_x_text(60)
+```
+
+##safety
+
+1-Extremely unsafe
+2-Very unsafe
+3-Somewhat unsafe
+4-Neither safe nor unsafe
+5-Somewhat safe
+6-Very safe
+7-Extremely safe
+```{r}
+data.all.phase2$vacc_safe <- as.factor(as.character(data.all.phase2$vacc_safe))
+
+labels = c("Extremely unsafe", "Very unsafe", "Somewhat unsafe", "Neither safe nor unsafe", "Somewhat safe", "Very safe", "Extremely safe")
+
+
+ggplot(data.all.phase2, aes(x=vacc_safe, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  rotate_x_text(60) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("Estimation vaccinie safety")
+```
+
+uncertainty attitude and safety estimation 
+```{r}
+labels = c("Extremely unsafe", "Very unsafe", "Somewhat unsafe", "Neither safe nor unsafe", "Somewhat safe", "Very safe", "Extremely safe")
+
+ggplot(data.all.phase2[data.all.phase2$error.med<0.5,], aes(x=vacc_safe, y=ambig_corr.med, color=vacc_safe)) +
+  geom_violin() +
+  geom_jitter(alpha=0.5) +
+  scale_x_discrete(labels=labels) +
+  rotate_x_text(60)
+```
+
+##safety confidence
+
+1-Absolutely unconfident
+2-Very unconfident
+3-Somewhat unconfident
+4-Not sure
+5-Somewhat confident
+6-Very confident
+7-Absolutely confident
+```{r}
+data.all.phase2$vacc_safe_conf <- as.factor(as.character(data.all.phase2$vacc_safe_conf))
+
+labels = c("Absolutely unconfident", "Very unconfident", "Somewhat unconfident", "Not sure", "Somewhat confident", "Very confident", "Absolutely confident")
+
+
+ggplot(data.all.phase2, aes(x=vacc_safe_conf, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  rotate_x_text(60) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("Confidence in estimatiing vaccinie safety")
+```
+
+uncertainty attitude and safety estimation confidence
+```{r}
+labels = c("Absolutely unconfident", "Very unconfident", "Somewhat unconfident", "Not sure", "Somewhat confident", "Very confident", "Absolutely confident")
+
+ggplot(data.all.phase2[data.all.phase2$error.med<0.5,], aes(x=vacc_safe_conf, y=ambig_corr.med, color=vacc_safe_conf)) +
+  geom_violin() +
+  geom_jitter(alpha=0.5) +
+  scale_x_discrete(labels=labels) +
+  rotate_x_text(60)
+```
+
+## correlation between vaccine saftey and efficacy estimation
+
+```{r}
+ggplot(data.all.phase2, aes(x=vacc_effect, y=vacc_safe, color = vacc_willing)) +
+  # geom_point()+
+  geom_bin2d() +
+  scale_color_brewer()
+```
+
+
+# variant
+
+## likelyhood of worsening the pandemic
+1-Definitely not
+2-Very unlikely
+3-Somewhat unlikely
+4-Not sure
+5-Somewhat likely
+6-Very likely
+7-Definitely
+```{r}
+data.all.phase2$var_worse <- as.factor(as.character(data.all.phase2$var_worse))
+
+labels = c("Definitely not", "Very unlikely", "Somewhat unlikely", "Not sure", "Somewhat likely", "Very likely", "Definitely")
+
+
+ggplot(data.all.phase2, aes(x=var_worse, fill = is.young)) +
+  geom_histogram(stat="count", position="stack") +
+  scale_x_discrete(labels=labels) +
+  rotate_x_text(60) +
+  scale_fill_discrete(labels=c("Older", "Younger"), name="") +
+  ggtitle("Pandemic progression worsened by the new variant")
+```
+
+uncertainty attitude and new variant estimation 
+```{r}
+labels = labels = c("Definitely not", "Very unlikely", "Somewhat unlikely", "Not sure", "Somewhat likely", "Very likely", "Definitely")
+
+ggplot(data.all.phase2[data.all.phase2$error.med<0.5,], aes(x=var_worse, y=risk.med, color=var_worse)) +
+  geom_violin() +
+  geom_jitter(alpha=0.5) +
+  scale_x_discrete(labels=labels) +
+  rotate_x_text(60)
+```
+
+# President administration
+
+```{r}
+
+```
+
+
