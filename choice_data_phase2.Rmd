@@ -1,0 +1,558 @@
+---
+title: "R Notebook"
+output: "ruonanjia"
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+rm(list = ls())
+```
+
+load library
+```{r}
+library(ggplot2)
+library(ggpubr)
+library(viridis)
+library(tidyverse)
+```
+
+functions
+```{r}
+data_summary <- function(data, varname, groupnames){
+  # Function to calculate the mean and the standard error
+  # for each group
+  #+++++++++++++++++++++++++
+  # data : a data frame
+  # varname : the name of a column containing the variable
+  #to be summariezed
+  # groupnames : vector of column names to be used as
+  # grouping variables
+  
+  require(plyr)
+  summary_func <- function(x, col){
+    c(mean = mean(x[[col]], na.rm=TRUE),
+      sd = sd(x[[col]], na.rm=TRUE)/sqrt(length(x[[col]])))
+  }
+  data_sum<-ddply(data, groupnames, .fun=summary_func,
+                  varname)
+  data_sum <- rename(data_sum, c("mean" = varname))
+  return(data_sum)
+}
+
+
+data_meanstd <- function(x) {
+  # Function to produce summary statistics (mean and +/- sd)
+  m <- mean(x)
+  ymin <- m-sd(x)
+  ymax <- m+sd(x)
+  return(c(y=m,ymin=ymin,ymax=ymax))
+}
+
+data_meanse <- function(x) {
+  # Function to produce summary statistics (mean and +/- sd)
+  m <- mean(x)
+  ymin <- m-sd(x)/sqrt(length(x))
+  ymax <- m+sd(x)/sqrt(length(x))
+  return(c(y=m,ymin=ymin,ymax=ymax))
+}
+
+```
+
+# Choice data
+```{r}
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/batch_data/Phase2")
+
+load("data_choice_phase2_mon_306sub.Rda")
+load("data_choice_phase2_med_306sub.Rda")
+
+
+```
+
+```{r}
+data.choice.med <- data.choice.med.phase2
+data.choice.mon <- data.choice.mon.phase2
+```
+
+
+## Plot average choice probability by uncertainty level
+```{r}
+# monetary risky
+data_plot <- data_summary(data.choice.mon[data.choice.mon$ambig == 0,], varname = "choice", groupnames = "prob")
+
+
+ggplot(data_plot, aes(x=prob, y=choice)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
+  ggtitle("Monetary Risky")
+
+# monetary ambiguous
+data_plot <- data_summary(data.choice.mon[data.choice.mon$ambig != 0,], varname = "choice", groupnames = "ambig")
+
+ggplot(data_plot, aes(x=ambig, y=choice)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
+  ggtitle("Monetary Ambiguous")
+
+# medical risky
+data_plot <- data_summary(data.choice.med[data.choice.med$ambig == 0,], varname = "choice", groupnames = "prob")
+
+ggplot(data_plot, aes(x=prob, y=choice)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
+  ggtitle("Medical Risky")
+
+# medical ambiguous
+data_plot <- data_summary(data.choice.med[data.choice.med$ambig != 0,], varname = "choice", groupnames = "ambig")
+
+ggplot(data_plot, aes(x=ambig, y=choice)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
+  ggtitle("Medical Ambiguous")
+
+
+```
+
+
+## plot average choice probability by value
+```{r}
+# monetary risky
+data_plot <- data_summary(data.choice.mon[data.choice.mon$ambig == 0,], varname = "choice", groupnames = "val")
+
+ggplot(data_plot, aes(x=val, y=choice)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
+  scale_x_discrete(limits = c(5,8,12,25)) +
+  ggtitle("Monetary Risky")
+
+# monetary ambiguous
+data_plot <- data_summary(data.choice.mon[data.choice.mon$ambig != 0,], varname = "choice", groupnames = "val")
+
+ggplot(data_plot, aes(x=val, y=choice)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
+  scale_x_discrete(limits = c(5,8,12,25)) +
+  ggtitle("Monetary Ambiguous")
+
+# medical risky
+data_plot <- data_summary(data.choice.med[data.choice.med$ambig == 0,], varname = "choice", groupnames = "val")
+
+ggplot(data_plot, aes(x=val, y=choice)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
+  scale_x_discrete(limits = c("Slight", "Moderate", "Major", "Recovery")) +
+  ggtitle("Medical Risky")
+
+# medical ambiguous
+data_plot <- data_summary(data.choice.med[data.choice.med$ambig != 0,], varname = "choice", groupnames = "val")
+
+ggplot(data_plot, aes(x=val, y=choice)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=choice-sd, ymax=choice+sd), width=0.2, position=position_dodge(0.9)) +
+  scale_x_discrete(limits = c("Slight", "Moderate", "Major", "Recovery")) +
+  ggtitle("Medical Ambiguous")
+```
+
+
+## individual subject choice data model free attitude
+```{r}
+# id_idx = 1
+ids <- unique(data.choice.mon$WorkderID)
+
+risk.mon <- rep(0,length(ids))
+ambig.mon <- rep(0,length(ids))
+ambig_corr.mon <- rep(0,length(ids))
+risk.med <- rep(0,length(ids))
+ambig.med <- rep(0,length(ids))
+ambig_corr.med <- rep(0,length(ids))
+
+error.mon <- rep(0,length(ids))
+error.med <- rep(0,length(ids))
+
+# ismed <- array(numeric())
+# choice_uncert <- array(numeric())
+# choice_outcome <- array(numeric())
+# prob <- array(numeric())
+# ambig <- array(numeric())
+# val <- array(numeric())
+
+risk25.mon <- rep(0,length(ids))
+risk50.mon <- rep(0,length(ids))
+risk75.mon <- rep(0,length(ids))
+ambig24.mon <- rep(0,length(ids))
+ambig50.mon <- rep(0,length(ids))
+ambig74.mon <- rep(0,length(ids))
+ambig100.mon <- rep(0,length(ids))
+ambig24_corr.mon <- rep(0,length(ids))
+ambig50_corr.mon <- rep(0,length(ids))
+ambig74_corr.mon <- rep(0,length(ids))
+ambig100_corr.mon <- rep(0,length(ids))
+
+risk25.med <- rep(0,length(ids))
+risk50.med <- rep(0,length(ids))
+risk75.med <- rep(0,length(ids))
+ambig24.med <- rep(0,length(ids))
+ambig50.med <- rep(0,length(ids))
+ambig74.med <- rep(0,length(ids))
+ambig100.med <- rep(0,length(ids))
+ambig24_corr.med <- rep(0,length(ids))
+ambig50_corr.med <- rep(0,length(ids))
+ambig74_corr.med <- rep(0,length(ids))
+ambig100_corr.med <- rep(0,length(ids))
+
+level1.risk.mon <- rep(0,length(ids))
+level2.risk.mon <- rep(0,length(ids))
+level3.risk.mon <- rep(0,length(ids))
+level4.risk.mon <- rep(0,length(ids))
+level1.ambig.mon <- rep(0,length(ids))
+level2.ambig.mon <- rep(0,length(ids))
+level3.ambig.mon <- rep(0,length(ids))
+level4.ambig.mon <- rep(0,length(ids))
+
+level1.risk.med <- rep(0,length(ids))
+level2.risk.med <- rep(0,length(ids))
+level3.risk.med <- rep(0,length(ids))
+level4.risk.med <- rep(0,length(ids))
+level1.ambig.med <- rep(0,length(ids))
+level2.ambig.med <- rep(0,length(ids))
+level3.ambig.med <- rep(0,length(ids))
+level4.ambig.med <- rep(0,length(ids))
+
+idx = 0
+
+for (id in ids) {
+  idx <- idx + 1
+  
+  # single subject data
+  sub.mon <- data.choice.mon[data.choice.mon$WorkderID == id,]
+  sub.med <- data.choice.med[data.choice.med$WorkderID == id,]
+  sub.mon$val <- as.factor(sub.mon$val)
+  
+  # stochastic dominance error
+  error.mon[idx] = mean(sub.mon$choice[sub.mon$val==5])
+  error.med[idx] = mean(sub.med$choice[sub.med$val=="Slight"])
+  
+  # choice by uncertainty level
+  # summary_risk_mon = data_summary(sub.mon[sub.mon$val!=5 & sub.mon$ambig==0,], "choice", "prob")
+  # summary_ambig_mon = data_summary(sub.mon[sub.mon$val!=5 & sub.mon$ambig!=0,], "choice", "ambig")
+  # summary_risk_med = data_summary(sub.med[sub.med$val!="Slight" & sub.med$ambig==0,], "choice", "prob")
+  # summary_ambig_med = data_summary(sub.med[sub.med$val!="Slight" & sub.med$ambig!=0,], "choice", "ambig")
+  # 
+  # ismed <- append(ismed, c(summary_risk_mon))
+  # prob <- append(prob, c())
+  
+  risk25.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0 & sub.mon$prob==0.25])
+  risk50.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0 & sub.mon$prob==0.5])
+  risk75.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0 & sub.mon$prob==0.75])
+
+  risk25.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0 & sub.med$prob==0.25])
+  risk50.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0 & sub.med$prob==0.5])
+  risk75.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0 & sub.med$prob==0.75])
+
+  ambig24.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0.24])
+  ambig50.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0.50]) 
+  ambig74.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0.75])
+  ambig100.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==1])
+  
+  ambig24_corr.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0.24]) -
+    mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0 & sub.mon$prob==0.5])
+  ambig50_corr.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0.50]) -
+    mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0 & sub.mon$prob==0.5])
+  ambig74_corr.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0.75]) -
+    mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0 & sub.mon$prob==0.5])
+  ambig100_corr.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==1]) -
+    mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0 & sub.mon$prob==0.5])
+
+  ambig24.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0.24])
+  ambig50.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0.50])
+  ambig74.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0.75]) 
+  ambig100.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==1]) 
+  
+  ambig24_corr.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0.24]) -
+    mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0 & sub.med$prob==0.5])
+  ambig50_corr.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0.50]) -
+    mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0 & sub.med$prob==0.5])
+  ambig74_corr.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0.75]) -
+    mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0 & sub.med$prob==0.5])
+  ambig100_corr.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==1]) -
+    mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0 & sub.med$prob==0.5])
+  
+  # choice by outcome level
+  # summary_val_risk_mon = data_summary(sub.mon[sub.mon$ambig==0,], "choice", "val")
+  # summary_val_ambig_mon = data_summary(sub.mon[sub.mon$ambig!=0,], "choice", "val")
+  # summary_val_risk_med = data_summary(sub.med[sub.med$ambig==0,], "choice", "val")
+  # summary_val_ambig_med = data_summary(sub.med[sub.med$ambig!=0,], "choice", "val")
+  
+  
+  level1.risk.mon[idx] = mean(sub.mon$choice[sub.mon$val==5 & sub.mon$ambig==0])
+  level2.risk.mon[idx] = mean(sub.mon$choice[sub.mon$val==8 & sub.mon$ambig==0])
+  level3.risk.mon[idx] = mean(sub.mon$choice[sub.mon$val==12 & sub.mon$ambig==0])
+  level4.risk.mon[idx] = mean(sub.mon$choice[sub.mon$val==25 & sub.mon$ambig==0])
+
+  level1.ambig.mon[idx] = mean(sub.mon$choice[sub.mon$val==5 & sub.mon$ambig!=0])
+  level2.ambig.mon[idx] = mean(sub.mon$choice[sub.mon$val==8 & sub.mon$ambig!=0])
+  level3.ambig.mon[idx] = mean(sub.mon$choice[sub.mon$val==12 & sub.mon$ambig!=0])
+  level4.ambig.mon[idx] = mean(sub.mon$choice[sub.mon$val==25 & sub.mon$ambig!=0])
+
+  level1.risk.med[idx] = mean(sub.med$choice[sub.med$val=="Slight" & sub.med$ambig==0])
+  level2.risk.med[idx] = mean(sub.med$choice[sub.med$val=="Moderate" & sub.med$ambig==0])
+  level3.risk.med[idx] = mean(sub.med$choice[sub.med$val=="Major" & sub.med$ambig==0])
+  level4.risk.med[idx] = mean(sub.med$choice[sub.med$val=="Recovery" & sub.med$ambig==0])
+
+  level1.ambig.med[idx] = mean(sub.med$choice[sub.med$val=="Slight" & sub.med$ambig!=0])
+  level2.ambig.med[idx] = mean(sub.med$choice[sub.med$val=="Moderate" & sub.med$ambig!=0])
+  level3.ambig.med[idx] = mean(sub.med$choice[sub.med$val=="Major" & sub.med$ambig!=0])
+  level4.ambig.med[idx] = mean(sub.med$choice[sub.med$val=="Recovery" & sub.med$ambig!=0])
+
+  # model-free attitude
+  risk.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0])
+  ambig.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig!=0])
+  ambig_corr.mon[idx] = mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig!=0])-
+    mean(sub.mon$choice[sub.mon$val!=5 & sub.mon$ambig==0 & sub.mon$prob==0.5])
+  
+  risk.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0])
+  ambig.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig!=0])
+  ambig_corr.med[idx] = mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig!=0])-
+    mean(sub.med$choice[sub.med$val!="Slight" & sub.med$ambig==0 & sub.med$prob==0.5])
+  
+}  
+
+data.attitude.phase2 <- data.frame(WorkerID = ids,
+                            risk.mon, ambig.mon, ambig_corr.mon, risk.med, ambig.med, ambig_corr.med,
+                            risk25.mon, risk50.mon, risk75.mon,
+                            ambig24.mon, ambig50.mon, ambig74.mon, ambig100.mon,
+                            ambig24_corr.mon, ambig50_corr.mon, ambig74_corr.mon, ambig100_corr.mon,
+                            risk25.med, risk50.med, risk75.med,
+                            ambig24.med, ambig50.med, ambig74.med, ambig100.med,
+                            ambig24_corr.med, ambig50_corr.med, ambig74_corr.med, ambig100_corr.med,
+                            level1.risk.mon, level2.risk.mon, level3.risk.mon, level4.risk.mon,
+                            level1.ambig.mon, level2.ambig.mon, level3.ambig.mon, level4.ambig.mon,
+                            level1.risk.med, level2.risk.med, level3.risk.med, level4.risk.med,
+                            level1.ambig.med, level2.ambig.med, level3.ambig.med, level4.ambig.med,
+                            error.mon, error.med)
+
+```
+
+
+```{r}
+data.attitude.phase2
+```
+
+save model free attitude
+```{r}
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/batch_data/Phase2")
+save(data.attitude.phase2, file="data_all_phase2_306sub_attitude.Rda")
+```
+
+# compare attitudes with phase1
+
+load phase1 data
+```{r}
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/mdm_covid19_data")
+load("data_all_444sub_rename_with_WorkerId.Rda")
+load("data_all_444sub_attitude.Rda")
+
+# combine data
+data.all <- merge(data.all, data.attitude, by = "mTurkCode")
+data.all$age <- as.numeric(as.character(data.all$age)) + 17 # correct coding
+rm(data.attitude)
+
+```
+
+load phase2 data
+```{r}
+# setwd("E:/Ruonan/Projects in the lab/mdm_covid19/batch_data")
+setwd("E:/Ruonan/Projects in the lab/mdm_covid19/behavior/mdm_covid19_data")
+load("data_all_phase2_306sub.Rda")
+load("data_all_phase2_306sub_attitude.Rda")
+
+# merge suvey response and attitude 
+colnames(data.attitude.phase2)[1] <- "WorkerId"
+# combine data
+data.all.phase2 <- merge(data.all.phase2, data.attitude.phase2, by = "WorkerId")
+
+# delete choice data
+# colnames(data.all)
+data.all.phase2 <-data.all.phase2[, -c(5:155)]
+
+# data.all.phase2$age
+data.all.phase2$age <- as.numeric(as.character(data.all.phase2$age)) + 17 # correct coding
+rm(data.attitude.phase2)
+```
+
+```{r}
+nrow(data.all)
+nrow(data.all.phase2)
+```
+
+## if age match
+```{r}
+age.phase1 <- data.all %>% select(age, WorkerId)
+age.phase2 <- data.all.phase2 %>% select(age, WorkerId)
+
+colnames(age.phase1)[1] <- "Age_phase1"
+colnames(age.phase2)[1] <- "Age_phase2"
+
+age <- merge(age.phase1, age.phase2, by="WorkerId")
+
+ggplot(age, aes(x=Age_phase1, y=Age_phase2)) +
+  geom_point()
+         
+```
+
+very interesting the age does not maatch for a handful of participants
+find out who
+```{r}
+age$diff <- age$Age_phase2-age$Age_phase1
+# View(age)
+
+WorkerId_exclude <- unique(age$WorkerId[abs(age$diff)>3])
+
+WorkerId_exclude
+```
+
+
+```{r}
+ggplot(age[!is.element(age$WorkerId, WorkerId_exclude),], aes(x=Age_phase1, y=Age_phase2)) +
+  geom_point()
+         
+```
+
+## Model-free attitude consistency
+
+stochastic dominance error
+```{r}
+error_med_exclude <- union(data.all.phase2$WorkerId[data.all.phase2$error.med >= 0.5], data.all$WorkerId[data.all$error.med >= 0.5])
+
+error_med_exclude <- unique(error_med_exclude)
+
+error_med_exclude
+
+error_mon_exclude <- union(data.all.phase2$WorkerId[data.all.phase2$error.mon >= 0.5], data.all$WorkerId[data.all$error.mon >= 0.5])
+
+error_mon_exclude <- unique(error_mon_exclude)
+
+error_mon_exclude
+```
+
+```{r}
+risk.med.phase1 <- data.all %>% select(risk.med, WorkerId)
+risk.med.phase2 <- data.all.phase2 %>% select(risk.med, WorkerId)
+
+colnames(risk.med.phase1)[1] <- "risk_med_phase1"
+colnames(risk.med.phase2)[1] <- "risk_med_phase2"
+
+risk.med <- merge(risk.med.phase1, risk.med.phase2, by="WorkerId")
+risk.med$increase <- risk.med$risk_med_phase2 - risk.med$risk_med_phase1
+
+risk.med <- risk.med[!is.element(risk.med$WorkerId, union(WorkerId_exclude, error_med_exclude)), ]
+
+
+ggplot(risk.med, aes(x=risk_med_phase1, y=risk_med_phase2)) +
+  geom_point() +
+  ggtitle("Medical Risky")
+
+cor.test(risk.med$risk_med_phase1, risk.med$risk_med_phase2)
+
+ggplot(risk.med, aes(x=increase)) +
+  geom_histogram() +
+  xlab("Increase in risky trials choice proportion") +
+  ggtitle("Medical Risky")
+```
+
+```{r}
+ambig.med.phase1 <- data.all %>% select(ambig_corr.med, WorkerId)
+ambig.med.phase2 <- data.all.phase2 %>% select(ambig_corr.med, WorkerId)
+
+
+colnames(ambig.med.phase1)[1] <- "ambig_med_phase1"
+colnames(ambig.med.phase2)[1] <- "ambig_med_phase2"
+
+ambig.med <- merge(ambig.med.phase1, ambig.med.phase2, by="WorkerId")
+ambig.med$increase <- ambig.med$ambig_med_phase2 - ambig.med$ambig_med_phase1
+
+ambig.med <- ambig.med[!is.element(ambig.med$WorkerId,union(WorkerId_exclude, error_med_exclude)), ]
+
+ggplot(ambig.med, aes(x=ambig_med_phase1, y=ambig_med_phase2)) +
+  geom_point() +
+  ggtitle("Medical Ambiguous")
+
+cor.test(ambig.med$ambig_med_phase1, ambig.med$ambig_med_phase2)
+
+ggplot(ambig.med, aes(x=increase)) +
+  geom_histogram() +
+  xlab("Increase in corrected ambiguous trials choice proportion") +
+  ggtitle("Medical Ambiguous")
+```
+
+```{r}
+risk.mon.phase1 <- data.all %>% select(risk.mon, WorkerId)
+risk.mon.phase2 <- data.all.phase2 %>% select(risk.mon, WorkerId)
+
+colnames(risk.mon.phase1)[1] <- "risk_mon_phase1"
+colnames(risk.mon.phase2)[1] <- "risk_mon_phase2"
+
+risk.mon <- merge(risk.mon.phase1, risk.mon.phase2, by="WorkerId")
+risk.mon$increase <- risk.mon$risk_mon_phase2 - risk.mon$risk_mon_phase1
+
+risk.mon <- risk.mon[!is.element(risk.mon$WorkerId, union(WorkerId_exclude, error_mon_exclude)), ]
+
+ggplot(risk.mon, aes(x=risk_mon_phase1, y=risk_mon_phase2)) +
+  geom_point() +
+  ggtitle("Monetary Risky")
+
+cor.test(risk.mon$risk_mon_phase1, risk.mon$risk_mon_phase2)
+
+ggplot(risk.mon, aes(x=increase)) +
+  geom_histogram() +
+  xlab("Increase in risky trials choice proportion") +
+  ggtitle("Monetary Risky")
+```
+
+```{r}
+ambig.mon.phase1 <- data.all %>% select(ambig_corr.mon, WorkerId)
+ambig.mon.phase2 <- data.all.phase2 %>% select(ambig_corr.mon, WorkerId)
+
+
+colnames(ambig.mon.phase1)[1] <- "ambig_mon_phase1"
+colnames(ambig.mon.phase2)[1] <- "ambig_mon_phase2"
+
+ambig.mon <- merge(ambig.mon.phase1, ambig.mon.phase2, by="WorkerId")
+ambig.mon$increase <- ambig.mon$ambig_mon_phase2 - ambig.mon$ambig_mon_phase1
+
+ambig.mon <- ambig.mon[!is.element(ambig.mon$WorkerId, union(WorkerId_exclude, error_mon_exclude)), ]
+
+ggplot(ambig.mon, aes(x=ambig_mon_phase1, y=ambig_mon_phase2)) +
+  geom_point() +
+  ggtitle("Monetary Ambiguous")
+
+cor.test(ambig.mon$ambig_mon_phase1, ambig.mon$ambig_mon_phase2)
+
+ggplot(ambig.mon, aes(x=increase)) +
+  geom_histogram() +
+  xlab("Increase in corrected ambiguous trials choice proportion") +
+  ggtitle("Monetary Ambiguous")
+```
+
+
+# Attitudes correlation
+```{r}
+ggplot(data.all.phase2[!is.element(data.all.phase2$WorkerId, error_mon_exclude),], aes(x=risk.mon, y=ambig_corr.mon)) +
+  geom_point() +
+  geom_smooth(method="lm")
+
+cor.test(data.all.phase2[!is.element(data.all.phase2$WorkerId, error_mon_exclude),]$risk.mon,
+         data.all.phase2[!is.element(data.all.phase2$WorkerId, error_mon_exclude),]$ambig_corr.mon)
+```
+
+```{r}
+ggplot(data.all.phase2[!is.element(data.all.phase2$WorkerId, error_mon_exclude),], aes(x=risk.med, y=ambig_corr.med)) +
+  geom_point() +
+  geom_smooth(method="lm")
+
+cor.test(data.all.phase2[!is.element(data.all.phase2$WorkerId, error_mon_exclude),]$risk.med,
+         data.all.phase2[!is.element(data.all.phase2$WorkerId, error_mon_exclude),]$ambig_corr.med)
+```
+
