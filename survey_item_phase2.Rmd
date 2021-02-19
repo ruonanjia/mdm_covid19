@@ -237,7 +237,7 @@ ggplot(data.all.phase2, aes(x=vacc_already)) +
 6-Very likely
 7-Definitely
 ```{r}
-data.all.phase2$vacc_willing <- as.factor(as.character(data.all.phase2$vacc_willing))
+data.all.phase2$vacc_willing <- ordered(as.character(data.all.phase2$vacc_willing))
 
 labels = c("Already vaccinated or NA", "Definitely not", "Very unlikely", "Somewhat unlikely", "Not sure", "Somewhat likely", "Very likely", "Definitely")
 
@@ -269,7 +269,7 @@ ggplot(data.all.phase2[data.all.phase2$error.med<0.5,], aes(x=vacc_willing, y=am
 6-Very effective
 7-Extremely effective
 ```{r}
-data.all.phase2$vacc_effect <- as.factor(as.character(data.all.phase2$vacc_effect))
+data.all.phase2$vacc_effect <- ordered(as.character(data.all.phase2$vacc_effect))
 
 labels = c("Extremely ineffective", "Very ineffective", "Somewhat ineffective", "Neither effective nor ineffective", "Somewhat effective", "Very effective", "Extremely effective")
 
@@ -304,7 +304,7 @@ ggplot(data.all.phase2[data.all.phase2$error.mon<0.5,], aes(x=vacc_effect, y=amb
 6-Very confident
 7-Absolutely confident
 ```{r}
-data.all.phase2$vacc_effect_conf <- as.factor(as.character(data.all.phase2$vacc_effect_conf))
+data.all.phase2$vacc_effect_conf <- ordered(as.character(data.all.phase2$vacc_effect_conf))
 
 labels = c("Absolutely unconfident", "Very unconfident", "Somewhat unconfident", "Not sure", "Somewhat confident", "Very confident", "Absolutely confident")
 
@@ -338,7 +338,7 @@ ggplot(data.all.phase2[data.all.phase2$error.med<0.5,], aes(x=vacc_effect_conf, 
 6-Very safe
 7-Extremely safe
 ```{r}
-data.all.phase2$vacc_safe <- as.factor(as.character(data.all.phase2$vacc_safe))
+data.all.phase2$vacc_safe <- ordered(as.character(data.all.phase2$vacc_safe))
 
 labels = c("Extremely unsafe", "Very unsafe", "Somewhat unsafe", "Neither safe nor unsafe", "Somewhat safe", "Very safe", "Extremely safe")
 
@@ -372,7 +372,7 @@ ggplot(data.all.phase2[data.all.phase2$error.med<0.5,], aes(x=vacc_safe, y=ambig
 6-Very confident
 7-Absolutely confident
 ```{r}
-data.all.phase2$vacc_safe_conf <- as.factor(as.character(data.all.phase2$vacc_safe_conf))
+data.all.phase2$vacc_safe_conf <- ordered(as.character(data.all.phase2$vacc_safe_conf))
 
 labels = c("Absolutely unconfident", "Very unconfident", "Somewhat unconfident", "Not sure", "Somewhat confident", "Very confident", "Absolutely confident")
 
@@ -405,6 +405,175 @@ ggplot(data.all.phase2, aes(x=vacc_effect, y=vacc_safe, color = vacc_willing)) +
   scale_color_brewer()
 ```
 
+```{r}
+ggplot(data.all.phase2, aes(x=vacc_effect, y=vacc_effect_conf)) +
+  # geom_point()+
+  geom_bin2d() +
+  scale_color_brewer()
+```
+
+```{r}
+ggplot(data.all.phase2, aes(x=vacc_effect_conf, y=vacc_willing)) +
+  # geom_point()+
+  geom_bin2d() +
+  scale_color_brewer()
+```
+
+
+
+
+## how estimation and confidence contribute to williness to get vaccine
+```{r}
+nrow(data.all.phase2)
+
+id_vacc_analysis <- data.all.phase2$WorkerId[data.all.phase2$vacc_willing!=""]
+# data.all.phase2$vacc_willing[191]==""
+
+length(id_vacc_analysis) # 290 subjects who indicated whether willing to take vaccine
+
+include_idx <- data.all.phase2$vacc_willing!=""
+```
+
+willingness: 1-7
+efficacy: 1-7
+efficacy confidence: 1-7
+safety: 1-7
+Safety confidence: 1-7
+
+```{r}
+# data.all.phase2$vacc_safe[include_idx]
+library(lme4)
+library(plot3D)
+```
+
+select data
+```{r}
+data2fit <- data.all.phase2 %>% select(vacc_willing, contains(paste("vacc_")))
+
+data2fit <- data2fit[include_idx,]
+
+nrow(data2fit) 
+
+```
+
+3D plot
+http://www.sthda.com/english/wiki/impressive-package-for-3d-and-4d-graph-r-software-and-data-visualization
+```{r}
+data2fit$vacc_willing <- as.numeric(as.character(data2fit$vacc_willing))
+data2fit$vacc_effect <- as.numeric(as.character(data2fit$vacc_effect))
+data2fit$vacc_effect_conf <- as.numeric(as.character(data2fit$vacc_effect_conf))
+
+scatter3D(data2fit$vacc_effect, 
+          data2fit$vacc_effect_conf, 
+          data2fit$vacc_willing, 
+          # colvar = NULL, 
+          # col = "blue",
+          pch = 19, cex = 0.5)
+```
+
+```{r}
+data2fit$vacc_willing <- as.numeric(as.character(data2fit$vacc_willing))
+data2fit$vacc_effect <- ordered(as.character(data2fit$vacc_effect))
+data2fit$vacc_effect_conf <- ordered(as.character(data2fit$vacc_effect_conf))
+
+ggplot(data2fit, aes(x=vacc_effect, y=vacc_willing, color=vacc_effect)) +
+  geom_violin() + 
+  scale_y_continuous(breaks=c(1:7))+
+  geom_jitter(alpha=0.5, height=0.1, width=0.25) +
+  theme(legend.position = "none")
+  
+ggplot(data2fit, aes(x=vacc_effect_conf, y=vacc_willing, color=vacc_effect_conf)) +
+  geom_violin() + 
+  scale_y_continuous(breaks=c(1:7))+
+  geom_jitter(alpha=0.5, height=0.1, width=0.25) +
+  theme(legend.position = "none")
+```
+
+```{r}
+data2fit$vacc_willing <- ordered(as.character(data2fit$vacc_willing))
+data2fit$vacc_effect <- ordered(as.character(data2fit$vacc_effect))
+data2fit$vacc_effect_conf <- as.numeric(as.character(data2fit$vacc_effect_conf))
+
+ggplot(data2fit, aes(x=vacc_effect, y=vacc_effect_conf
+                     , color=vacc_willing # color by willingess to get vaccinaited
+                     )) +
+  # geom_violin() + 
+  scale_y_continuous(breaks=c(1:7))+
+  geom_jitter(alpha=0.5, height=0.1, width=0.2) 
+  # theme(legend.position = "none")
+```
+
+```{r}
+data2fit$vacc_willing
+```
+
+```{r}
+data2fit$vacc_willing <- as.numeric(as.character(data2fit$vacc_willing))
+data2fit$vacc_safe <- ordered(as.character(data2fit$vacc_safe))
+data2fit$vacc_safe_conf <- ordered(as.character(data2fit$vacc_safe_conf))
+
+ggplot(data2fit, aes(x=vacc_safe, y=vacc_willing, color=vacc_safe)) +
+  geom_violin() + 
+  scale_y_continuous(breaks=c(1:7))+
+  geom_jitter(alpha=0.5, height=0.1, width=0.25) +
+  theme(legend.position = "none")
+  
+ggplot(data2fit, aes(x=vacc_safe_conf, y=vacc_willing, color=vacc_safe_conf)) +
+  geom_violin() + 
+  scale_y_continuous(breaks=c(1:7))+
+  geom_jitter(alpha=0.5, height=0.1, width=0.25) +
+  theme(legend.position = "none")
+```
+
+```{r}
+data2fit$vacc_willing <- ordered(as.character(data2fit$vacc_willing))
+data2fit$vacc_safe <- ordered(as.character(data2fit$vacc_safe))
+data2fit$vacc_safe_conf <- as.numeric(as.character(data2fit$vacc_safe_conf))
+
+ggplot(data2fit, aes(x=vacc_safe, y=vacc_safe_conf
+                     , color=vacc_willing # color by willingess to get vaccinaited
+                     )) +
+  # geom_violin() + 
+  scale_y_continuous(breaks=c(1:7))+
+  geom_jitter(alpha=0.5, height=0.1, width=0.2) 
+  # theme(legend.position = "none")
+```
+
+
+data type, continuous or discrete, for linear model
+continuous
+```{r}
+data2fit$vacc_willing <- as.numeric(as.character(data2fit$vacc_willing))
+data2fit$vacc_effect <- as.numeric(as.character(data2fit$vacc_effect))
+data2fit$vacc_effect_conf <- as.numeric(as.character(data2fit$vacc_effect_conf))
+data2fit$vacc_safe <- as.numeric(as.character(data2fit$vacc_safe))
+data2fit$vacc_safe_conf <- as.numeric(as.character(data2fit$vacc_safe_conf))
+```
+
+discrete
+```{r}
+data2fit$vacc_willing <- as.numeric(as.character(data2fit$vacc_willing))
+data2fit$vacc_effect <- ordered(as.character(data2fit$vacc_effect))
+data2fit$vacc_effect_conf <- ordered(as.character(data2fit$vacc_effect_conf))
+data2fit$vacc_safe <- ordered(as.character(data2fit$vacc_safe))
+data2fit$vacc_safe_conf <- ordered(as.character(data2fit$vacc_safe_conf))
+```
+
+```{r}
+model <- lm(vacc_willing ~ vacc_effect + vacc_effect_conf + vacc_effect*vacc_effect_conf,
+              data = data2fit)
+
+model <- lm(vacc_willing ~ vacc_safe + vacc_safe_conf + vacc_safe*vacc_safe_conf,
+              data = data2fit)
+
+model <- lm(vacc_willing ~ vacc_effect + vacc_effect_conf + vacc_effect*vacc_effect_conf + vacc_safe + vacc_safe_conf + vacc_safe*vacc_safe_conf,
+              data = data2fit)
+summary(model)
+```
+
+```{r}
+anova(model)
+```
 
 # variant
 
